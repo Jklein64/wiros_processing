@@ -3,14 +3,11 @@ import time
 import traceback
 from os.path import join
 
-import csi_utils.io_utils as io_utils
-import csi_utils.pipeline_utils as pipeline_utils
-import csi_utils.transform_utils as transform_utils
-import matplotlib.cm as cm
 import numpy as np
 import rospy
-from csi_tools.srv import SaveChannel, SaveChannelResponse
+from csi_utils import io_utils, pipeline_utils, transform_utils
 from geometry_msgs.msg import Pose, PoseStamped
+from matplotlib import cm
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 from rf_msgs.msg import Bearing, Wifi
@@ -343,24 +340,6 @@ class aoa_node:
         print(f"chan time: {toc - tic:.3e}")
         rospy.loginfo("RSSI %f, AOA %f deg", msg.rssi, self.last_aoa * 180 / np.pi)
 
-    def save_channel(self, req):
-        if req.num_channels is None or req.num_channels < 1:
-            self.num_save_csi = 1
-        else:
-            self.num_save_csi = req.num_channels
-        if req.mac == "":
-            self.csi_export_mac_filter = None
-        else:
-            self.csi_export_mac_filter = req.mac
-        self.save_csi_path = os.path.abspath(req.filename)
-        result = SaveChannelResponse()
-        result.result = f"Saving CSI to {self.save_csi_path}"
-        nchannels = self.num_save_csi
-        while self.num_save_csi > 0:
-            time.sleep(0.1)
-            continue
-        return result
-
     # start the node
     def start(self):
         self._theta_range = np.linspace(
@@ -384,5 +363,4 @@ class aoa_node:
             rospy.logwarn("No compensation provided.")
 
         rospy.Subscriber("/csi", Wifi, self.csi_callback, queue_size=1)
-        save_service = rospy.Service("savecsi", SaveChannel, self.save_channel)
         rospy.spin()

@@ -3,10 +3,10 @@ import argparse
 import os
 from os.path import join
 
-import csi_utils.pipeline_utils as pipeline_utils
 import numpy as np
 import rosbag
 import tqdm
+from csi_utils import pipeline_utils
 
 parse = argparse.ArgumentParser()
 parse.add_argument("bag", help="Input CSI bag file")

@@ -28,10 +28,9 @@ catkin_python_setup()
 ################################################
 
 ## Generate services in the 'srv' folder
-add_service_files(
-  FILES
-  SaveChannel.srv
-)
+# add_service_files(
+#   FILES
+# )
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
@@ -54,6 +53,5 @@ catkin_package(
 catkin_install_python(PROGRAMS
   scripts/aoa_node.py
   scripts/generate_static_compensation.py
-  scripts/bag2mat.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

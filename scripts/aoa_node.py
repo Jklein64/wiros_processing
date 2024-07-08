@@ -18,24 +18,24 @@ if __name__ == "__main__":
     # setup node options
     aoa.algo = rospy.get_param("~algo", "fft")
 
-    comp_path = rospy.get_param("~comp", None)
+    COMP_PATH = rospy.get_param("~comp", None)
     do_comp = rospy.get_param("~compensate_channel", True)
 
     if not do_comp:
         rospy.logwarn("Turning off compensation.")
-        comp_path = None
-    if comp_path is not None:
-        aoa.comp_path = comp_path
-        print(comp_path)
-        if os.path.isdir(comp_path):
+        COMP_PATH = None
+    if COMP_PATH is not None:
+        aoa.comp_path = COMP_PATH
+        print(COMP_PATH)
+        if os.path.isdir(COMP_PATH):
             aoa.comp = {}
             aoa.use_comp_folder = True
-        elif os.path.isfile(comp_path):
-            aoa.comp = np.load(comp_path)
+        elif os.path.isfile(COMP_PATH):
+            aoa.comp = np.load(COMP_PATH)
             aoa.use_comp_folder = False
         else:
             print(
-                f"fatal: compensation was turned on, but the provided path {comp_path} does not exist."
+                f"fatal: compensation was turned on, but the provided path {COMP_PATH} does not exist."
             )
             sys.exit(1)
 
