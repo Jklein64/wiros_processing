@@ -38,12 +38,12 @@ for topic, msg, t in tqdm.tqdm(bag.read_messages("/csi")):
     times[key].append(t.to_sec())
     rssis[key].append(msg.rssi)
 
-maxk = ""
-maxlen = 0
-for key in channels:
-    if len(channels[key]) > maxlen:
+maxk: str = ""
+maxlen: int = 0
+for key, value in channels.items():
+    if len(value) > maxlen:
         maxk = key
-        maxlen = len(channels[key])
+        maxlen = len(value)
 if maxk == "":
     print("No CSI in bag file")
     exit(1)

@@ -4,7 +4,7 @@ import sys
 
 import numpy as np
 import rospy
-from csi_utils.aoa_node_main import aoa_node
+from csi_utils.aoa_node_main import AoaNode
 
 EPS = np.finfo("float").eps
 
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     rospy.init_node("aoa_node", anonymous=True)
 
     # create node wrapper
-    aoa = aoa_node()
+    aoa = AoaNode()
 
     # setup node options
     aoa.algo = rospy.get_param("~algo", "fft")

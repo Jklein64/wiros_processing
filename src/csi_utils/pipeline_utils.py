@@ -32,7 +32,7 @@ def extract_csi(msg, comp=None, apply_nts=True, valid_tx=None):
     if bw == 40e6:
         csi[:64] *= -1j
 
-    csi = csi[constants.subcarrier_indices[bw]]
+    csi = csi[constants.SUBCARRIER_INDICES[bw]]
 
     if bw == 80e6:
         csi[117] = csi[118]
@@ -52,6 +52,4 @@ def compress_profile(prof):
 
 def mac_to_str(mactup):
     assert len(mactup) == 6, f"Invalid MAC tuple: {mactup}"
-    return "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}".format(
-        mactup[0], mactup[1], mactup[2], mactup[3], mactup[4], mactup[5]
-    )
+    return f"{mactup[0]:02x}:{mactup[1]:02x}:{mactup[2]:02x}:{mactup[3]:02x}:{mactup[4]:02x}:{mactup[5]:02x}"

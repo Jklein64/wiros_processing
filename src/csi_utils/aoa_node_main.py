@@ -15,7 +15,7 @@ from sensor_msgs.msg import Image
 from visualization_msgs.msg import Marker
 
 
-class aoa_node:
+class AoaNode:
     def __init__(self):
         # global params - modify these in code before calling run()
         self.use_color = False
@@ -66,7 +66,7 @@ class aoa_node:
 
     def algo_selector(self, sensor):
         if self.algo == "full_svd":
-            sensor = transform_utils.full_svd_aoa_sensor(
+            sensor = transform_utils.FullSvdAoaSensor(
                 self.rx_position,
                 self._theta_range,
                 self._tau_range,
@@ -74,33 +74,33 @@ class aoa_node:
                 valid_tx_ant=self.valid_tx_ant,
             )
         elif self.algo == "rx_svd":
-            sensor = transform_utils.rx_svd_aoa_sensor(
+            sensor = transform_utils.RxSvdAoaSensor(
                 self.rx_position,
                 self._theta_range,
                 self._tau_range,
                 self.pkt_smoothing_window,
             )
         elif self.algo == "aoa_only":
-            sensor = transform_utils.aoa_sensor_1d(
+            sensor = transform_utils.AoaSensor1D(
                 self.rx_position, self._theta_range, self.pkt_smoothing_window
             )
         elif self.algo == "fft":
-            sensor = transform_utils.fft_aoa_sensor(
+            sensor = transform_utils.FftAoaSensor(
                 self.rx_position, self._theta_range, self._tau_range
             )
         elif self.algo == "music":
-            sensor = transform_utils.full_music_aoa_sensor(
+            sensor = transform_utils.FullMusicAoaSensor(
                 self.rx_position,
                 self._theta_range,
                 self._tau_range,
                 self.pkt_smoothing_window,
             )
         elif self.algo == "aoa_music":
-            sensor = transform_utils.music_aoa_sensor_1d(
+            sensor = transform_utils.MusicAoaSensor1D(
                 self.rx_position, self._theta_range, self.pkt_smoothing_window
             )
         elif self.algo == "spotfi":
-            sensor = transform_utils.spotfi_sensor(
+            sensor = transform_utils.SpotfiSensor(
                 self.rx_position, self._theta_range, self._tau_range
             )
         elif self.algo is None:

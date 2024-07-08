@@ -42,7 +42,7 @@ def argmaxlocal(im):
     return np.asarray([[np.argmax(im), 0]])
 
 
-class full_svd_aoa_sensor:
+class FullSvdAoaSensor:
     def __init__(
         self, rx_pos, theta_space, tof_space, pkt_window=40, valid_tx_ant=None
     ):
@@ -127,7 +127,7 @@ class full_svd_aoa_sensor:
         )
 
 
-class full_music_aoa_sensor:
+class FullMusicAoaSensor:
     def __init__(self, rx_pos, theta_space, tof_space, pkt_window=40):
         self.thetas = {}
         self.taus = {}
@@ -192,7 +192,7 @@ class full_music_aoa_sensor:
         )
 
 
-class rx_svd_aoa_sensor:
+class RxSvdAoaSensor:
     def __init__(self, rx_pos, theta_space, tof_space, pkt_window=40):
         self.thetas = {}
         self.taus = {}
@@ -244,7 +244,7 @@ class rx_svd_aoa_sensor:
         )
 
 
-class fft_aoa_sensor:
+class FftAoaSensor:
     def __init__(self, rx_pos, theta_space, tof_space, valid_tx_ant=None):
         self.thetas = {}
         self.taus = {}
@@ -294,7 +294,7 @@ class fft_aoa_sensor:
         return aoa, prof_to_ret
 
 
-class music_aoa_sensor_1d:
+class MusicAoaSensor1D:
     def __init__(self, rx_pos, theta_space, pkt_window=40):
         self.rx_pos = rx_pos
         self.theta_space = theta_space
@@ -307,8 +307,6 @@ class music_aoa_sensor_1d:
         self.prof_dim = 1
 
     def __call__(self, H, chanspec):
-
-        bw = chanspec[1]
         if chanspec not in self.chanspec_seen:
             self.Theta[chanspec], _ = fft_mat(
                 self.rx_pos,
@@ -343,7 +341,7 @@ class music_aoa_sensor_1d:
         return self.theta_space[np.argmax(prof)], prof
 
 
-class aoa_sensor_1d:
+class AoaSensor1D:
     def __init__(self, rx_pos, theta_space, pkt_window=40):
         self.rx_pos = rx_pos
         self.theta_space = theta_space
@@ -358,8 +356,6 @@ class aoa_sensor_1d:
         self.return_profile = False
 
     def __call__(self, H, chanspec):
-
-        bw = chanspec[1]
         if chanspec not in self.chanspec_seen:
             self.Theta[chanspec], _ = fft_mat(
                 self.rx_pos,
@@ -434,7 +430,7 @@ def col_norm(matrix):
     return np.linalg.norm(matrix, axis=0)
 
 
-class spotfi_sensor:
+class SpotfiSensor:
     def __init__(self, rx_pos, theta_space, tof_space):
         self.rx_pos = rx_pos
         self.theta_space = theta_space

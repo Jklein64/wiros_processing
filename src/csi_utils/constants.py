@@ -1,14 +1,15 @@
 import numpy as np
 
-c = 3e8
-subcarrier_width = 80e6 / 256
+C = 3e8
+# note: this hardcodes 80 GHz bandwidth
+# SUBCARRIER_WIDTH = 80e6 / 256
 
 # Refer to Gast, Matthew S. 802.11 ac: a survival guide: Wi-Fi at gigabit and beyond. " O'Reilly Media, Inc.", 2013;
 # Chapter 2. The Phy
 # Note: For 20 MHz channel, we ignore the last subcarrier index, i.e. consider -27 to 27 and ignore the -28th and 28th SC;
 # We observe these subcarriers estimated by ASUS has lower power than the rest.
 
-subcarrier_spacing = {
+SUBCARRIER_SPACING = {
     80e6: np.arange(-122, 123, 1)[
         np.logical_not(
             np.in1d(
@@ -27,16 +28,19 @@ subcarrier_spacing = {
     ],
 }
 
-subcarrier_indices = {
-    80e6: subcarrier_spacing[80e6] + 128,
-    40e6: subcarrier_spacing[40e6] + 64,
-    20e6: subcarrier_spacing[20e6] + 32,  # +1 to account for even-subcarriers
+SUBCARRIER_INDICES = {
+    # convert from number that describes offset from the center frequency index to an
+    # absolute index into the subcarriers array by adding `2**(bw / 10e6) / 2`
+    80e6: SUBCARRIER_SPACING[80e6] + 128,
+    40e6: SUBCARRIER_SPACING[40e6] + 64,
+    20e6: SUBCARRIER_SPACING[20e6] + 32,
 }
 
-n_sub = {k: subcarrier_spacing[k].shape[0] for k in subcarrier_spacing}
+n_sub = {bw: np.shape(offsets)[0] for (bw, offsets) in SUBCARRIER_SPACING.items()}
 
 subcarrier_frequencies = {
-    k: subcarrier_spacing[k] * subcarrier_width for k in subcarrier_spacing
+    bw: offsets * bw / (2 ** (bw / 10e6))
+    for (bw, offsets) in SUBCARRIER_SPACING.items()
 }
 
 
