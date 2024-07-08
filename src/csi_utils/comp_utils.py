@@ -2,9 +2,7 @@ import csi_utils.transform_utils as transform_utils
 import numpy as np
 
 
-def music_compensation(
-    H, g_aoa, init, rx, freqs, return_loss=True, verbose=False, M=None
-):
+def music_compensation(H, g_aoa, init, rx, freqs, return_loss=True, M=None):
     """
     channel vector convention is to stack subcarriers, then receivers. So the channel vector
     is size 936, with four blocks of 234 stacked together.
@@ -20,25 +18,12 @@ def music_compensation(
 
     # if the noise space wasn't precomputed then compute it here
     if M is None:
-        # Uh = np.zeros((NOISE_DIM, H.shape[0],H.shape[1]), dtype=np.complex128)
         S = (
             transform_utils.aoa_steering_vec(rx, freqs, g_aoa)
             .transpose(0, 2, 1)
             .reshape((g_aoa.shape[0], -1))
             .conj()
         )
-        """
-        #create U^H @ S (noise space adjusted for expected steering vector)
-        for pkt in range(H.shape[0]):
-            u,s,_ = np.linalg.svd(H[pkt])
-            # if pkt == 100:
-            #     pl.draw_channel(u[:,0].reshape((234,4,1), order='F'), title="First Eigenvector")
-            Uh[:,pkt,:] = (u[:,1:4].conj().T*(s[1:,np.newaxis])) @ np.diag(S[pkt,:])
-            # Uh[:,pkt,:] = (u[:,1:4].conj().T) @ np.diag(S[pkt,:])
-        Uh /= np.max(np.abs(Uh))
-        #create PSD matrix (Uh^H @ Uh)
-        Uh = Uh.reshape((-1,Uh.shape[2]))
-        """
 
         for pkt in range(H.shape[0]):
             H[pkt, :, :] = np.diag(S[pkt, :]) @ H[pkt, :, :]
@@ -115,5 +100,4 @@ def music_compensation(
         print(f"{N}/{N_runs}: Loss:{f_n[0,0]: 0.5f}, \u03BB:{lam[0,0]}")
     if return_loss:
         return [np.exp(1.0j * c), f_n[0, 0]]
-    else:
-        return np.exp(1.0j * c)
+    return np.exp(1.0j * c)

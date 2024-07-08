@@ -9,7 +9,6 @@ BW2NUM_SC = 3.2e-6
 def nts(H, freq):
     # H: n_sub x n_rx x n_measurements
     for tx in range(H.shape[2]):
-        nTs = H.shape[1]
         hpk = H[:, :, tx]
         line = np.polyfit(freq, np.unwrap(np.angle(hpk), axis=0), 1)
         tch = np.min(line[0, :])

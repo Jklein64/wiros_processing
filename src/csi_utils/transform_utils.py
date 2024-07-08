@@ -35,15 +35,11 @@ def fft_mat(rx, freqs, theta, d):
     return Theta, Tau
 
 
-def argmaxlocal(im, thresh=0.0, exclude_borders=True):
+def argmaxlocal(im):
     if im.shape[1] > 1:
-        # return np.fliplr(np.flipud(feat.peak_local_max(im.T, indices=True, exclude_border=exclude_borders,
-        #                                               min_distance=5, threshold_rel=thresh)))
-        return np.asarray(np.unravel_index(np.argmax(im, axis=None), im.shape))[
-            :, np.newaxis
-        ]
-    else:
-        return np.asarray([[np.argmax(im), 0]])
+        unraveled = np.unravel_index(np.argmax(im, axis=None), im.shape)
+        return np.asarray(unraveled)[:, np.newaxis]
+    return np.asarray([[np.argmax(im), 0]])
 
 
 class full_svd_aoa_sensor:
@@ -126,9 +122,7 @@ class full_svd_aoa_sensor:
         prof = np.abs(self.Theta[chanspec] @ (U_csi @ self.Tau[chanspec]))
         # find max peak
         return (
-            self.theta_space[
-                argmaxlocal(prof, thresh=0.99, exclude_borders=False)[0, 0]
-            ],
+            self.theta_space[argmaxlocal(prof)[0, 0]],
             prof,
         )
 
@@ -193,9 +187,7 @@ class full_music_aoa_sensor:
         prof = np.reciprocal(np.linalg.norm(prof, axis=1) + eps)
 
         return (
-            self.theta_space[
-                argmaxlocal(prof, thresh=0.99, exclude_borders=False)[0, 0]
-            ],
+            self.theta_space[argmaxlocal(prof)[0, 0]],
             prof,
         )
 
@@ -247,9 +239,7 @@ class rx_svd_aoa_sensor:
 
         prof = np.abs(self.Theta[chanspec] @ U_csi @ self.Tau[chanspec])
         return (
-            self.theta_space[
-                argmaxlocal(prof, thresh=0.99, exclude_borders=False)[0, 0]
-            ],
+            self.theta_space[argmaxlocal(prof)[0, 0]],
             prof,
         )
 
@@ -445,7 +435,7 @@ def col_norm(matrix):
 
 
 class spotfi_sensor:
-    def __init__(self, rx_pos, theta_space, tof_space, valid_tx_ant=None):
+    def __init__(self, rx_pos, theta_space, tof_space):
         self.rx_pos = rx_pos
         self.theta_space = theta_space
         self.tof_space = tof_space
@@ -517,9 +507,7 @@ class spotfi_sensor:
         )
         profile = np.abs(profile.reshape((len(self.theta_space), len(self.tof_space))))
         return (
-            self.theta_space[
-                argmaxlocal(profile, thresh=0.99, exclude_borders=False)[0, 0]
-            ],
+            self.theta_space[argmaxlocal(profile)[0, 0]],
             profile,
         )
 

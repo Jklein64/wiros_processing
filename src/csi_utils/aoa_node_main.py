@@ -182,7 +182,7 @@ class aoa_node:
         mac = pipeline_utils.mac_to_str(tuple(msg.txmac))
         bw = msg.bw * 1e6
 
-        rospy.loginfo(f"CSI from %s", mac)
+        rospy.loginfo("CSI from %s", mac)
 
         if mac not in self.macs:
             self.macs.add(mac)
