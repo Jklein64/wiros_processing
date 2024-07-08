@@ -1,25 +1,26 @@
 #! /usr/bin/env python3
-import rospy
-from csi_utils.aoa_node_main import aoa_node
-import numpy as np
 import os
 import sys
-EPS = np.finfo('float').eps
+
+import numpy as np
+import rospy
+from csi_utils.aoa_node_main import aoa_node
+
+EPS = np.finfo("float").eps
 
 
-if __name__ == '__main__':
-    rospy.init_node('aoa_node', anonymous=True)
+if __name__ == "__main__":
+    rospy.init_node("aoa_node", anonymous=True)
 
-    #create node wrapper
+    # create node wrapper
     aoa = aoa_node()
-    
-    #setup node options
+
+    # setup node options
     aoa.algo = rospy.get_param("~algo", "fft")
 
-    
     comp_path = rospy.get_param("~comp", None)
     do_comp = rospy.get_param("~compensate_channel", True)
-    
+
     if not do_comp:
         rospy.logwarn("Turning off compensation.")
         comp_path = None
@@ -33,14 +34,17 @@ if __name__ == '__main__':
             aoa.comp = np.load(comp_path)
             aoa.use_comp_folder = False
         else:
-            print(f"fatal: compensation was turned on, but the provided path {comp_path} does not exist.")
+            print(
+                f"fatal: compensation was turned on, but the provided path {comp_path} does not exist."
+            )
             sys.exit(1)
 
-    aoa.rx_position = np.asarray(rospy.get_param("~rx_position", None)).reshape((-1,2))
+    aoa.rx_position = np.asarray(rospy.get_param("~rx_position", None)).reshape((-1, 2))
     if aoa.rx_position is None:
-        rospy.logfatal("The parameter rx_position was not set. Please set it with list of 8 floats as detailed in antennas.md")
+        rospy.logfatal(
+            "The parameter rx_position was not set. Please set it with list of 8 floats as detailed in antennas.md"
+        )
 
-    
     compensate_channel = rospy.get_param("~compensate_channel", False)
     aoa.apply_nts = rospy.get_param("~correct_tof_offset", False)
 
@@ -61,6 +65,6 @@ if __name__ == '__main__':
     aoa.rssi_threshold = rospy.get_param("~rssi_thresh", -65)
     # Will use all TX if left as None
     aoa.valid_tx_ant = rospy.get_param("~valid_tx_ant", None)
-    
-    #start node
+
+    # start node
     aoa.start()
