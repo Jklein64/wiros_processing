@@ -428,7 +428,7 @@ class spotfi_sensor:
 
         if chanspec not in self.chanspec_seen:
             freqs = constants.get_channel_frequencies(chanspec[0],chanspec[1]),
-            self.steering_mat[chanspec] = spotfi_mat(rx_pos, freqs,
+            self.steering_mat[chanspec] = spotfi_mat(self.rx_pos, freqs,
                                                      self.theta_space, self.tof_space,
                                                      len_rect, ht_rect)
 
