@@ -53,5 +53,6 @@ catkin_package(
 catkin_install_python(PROGRAMS
   scripts/aoa_node.py
   scripts/generate_static_compensation.py
+  src/correction_node/correction_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

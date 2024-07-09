@@ -4,6 +4,7 @@ import rospy
 from rf_msgs.msg import Bearing, Profile1D, Profile2D, Wifi
 from rospy import Publisher, ROSInterruptException, Subscriber
 
+from ..processing import apply_compensation, array_from_wifi_message
 from .params import Params
 
 
@@ -23,7 +24,11 @@ class AoaNode:
         if self.params.rssi_threshold:
             if msg.rssi < self.params.rssi_threshold:
                 return
-        # apply compensation
+
+        # apply compensation/correction
+        csi = array_from_wifi_message(msg)
+        csi = apply_compensation(csi, self.params.static_compensation_path)
+
         # publish compensated CSI
         # calculate AoA and profile
         # publish bearing

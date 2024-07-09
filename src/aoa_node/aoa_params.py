@@ -6,7 +6,7 @@ import rospy
 from .algorithm import Algorithm
 
 
-class Params:
+class AoaParams:
     # algorithm parameters
     algo: Algorithm  # algorithm to use
     theta_min: float  # min value of theta/AoA samples (radians)
@@ -18,6 +18,7 @@ class Params:
 
     # device parameters
     static_compensation_path: str | None
+    correct_tof_offset: bool
     rx_position: np.ndarray
 
     # output parameters
@@ -25,7 +26,6 @@ class Params:
     profile_type: "1D" | "2D" | "both" | "none"
 
     def __init__(self):
-        # algorithm parameters
         self.algo: Algorithm = Algorithm.from_string(rospy.get_param("~algo"))
         self.theta_min = rospy.get_param("~theta_min", -np.pi)
         self.theta_max = rospy.get_param("~theta_max", np.pi)
@@ -33,8 +33,8 @@ class Params:
         self.tau_min = rospy.get_param("~tau_min", -10)
         self.tau_max = rospy.get_param("~tau_max", 40)
         self.tau_count = rospy.get_param("~tau_count", 100)
-
-        self.rssi_threshold = rospy.get_param("~rssi_threshold", None)
         self.static_compensation_path = rospy.get_param("~static_compensation_path")
+        self.correct_tof_offset = rospy.get_param("~correct_tof_offset", True)
         self.rx_position = rospy.get_param("~rx_position")
+        self.rssi_threshold = rospy.get_param("~rssi_threshold", None)
         self.profile_type = rospy.get_param("~profile_type", "both")
