@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import rospy
-
-from .algorithm import Algorithm
+from aoa_node.algorithm import Algorithm
 
 
 class AoaParams:
@@ -17,12 +16,9 @@ class AoaParams:
     tau_count: int  # number of tau/ToF samples
 
     # device parameters
-    static_compensation_path: str | None
-    correct_tof_offset: bool
     rx_position: np.ndarray
 
     # output parameters
-    rssi_threshold: int | None  # discards CSI data if RSSI is below threshold
     profile_type: "1D" | "2D" | "both" | "none"
 
     def __init__(self):
@@ -33,8 +29,5 @@ class AoaParams:
         self.tau_min = rospy.get_param("~tau_min", -10)
         self.tau_max = rospy.get_param("~tau_max", 40)
         self.tau_count = rospy.get_param("~tau_count", 100)
-        self.static_compensation_path = rospy.get_param("~static_compensation_path")
-        self.correct_tof_offset = rospy.get_param("~correct_tof_offset", True)
         self.rx_position = rospy.get_param("~rx_position")
-        self.rssi_threshold = rospy.get_param("~rssi_threshold", None)
         self.profile_type = rospy.get_param("~profile_type", "both")
