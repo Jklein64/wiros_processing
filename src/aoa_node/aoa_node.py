@@ -20,6 +20,7 @@ class AoaNode:
     def csi_callback(self, msg: Wifi):
         # extract csi matrix
         csi = array_from_wifi_message(msg)
+
         # calculate AoA and profile
 
         # publish bearing
