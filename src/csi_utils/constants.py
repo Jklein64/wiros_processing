@@ -1,7 +1,6 @@
 import numpy as np
 
 C = 3e8
-# note: this hardcodes 80 GHz bandwidth
 # SUBCARRIER_WIDTH = 80e6 / 256
 
 # Refer to Gast, Matthew S. 802.11 ac: a survival guide: Wi-Fi at gigabit and beyond. " O'Reilly Media, Inc.", 2013;
