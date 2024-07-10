@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import numpy as np
+from common.constants import SUBCARRIER_INDICES
 from rf_msgs.msg import Wifi
-
-from .constants import SUBCARRIER_INDICES
 
 
 def array_from_wifi_message(msg: Wifi):
     """
-    Converts the given ROS `Wifi` message `msg` into a numpy array with shape `(n_sub, n_cols, n_sub)`, where the first dimension corresponds to receivers and the second to transmitters.
+    Converts the given ROS `Wifi` message `msg` into a numpy array with shape `(n_sub, n_rows, n_cols)`, where the first dimension corresponds to receivers and the second to transmitters.
     """
     bw = msg.bw * 1e6  # msg.bw is in MHz
     n_sub = msg.n_sub
