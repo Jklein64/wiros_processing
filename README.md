@@ -1,4 +1,4 @@
-_Part of the [WiROS](https://github.com/Jklein64/wiros?tab=readme-ov-file) Wifi sensing toolbox_
+_Part of the [WiROS](https://github.com/Jklein64/wiros) Wifi sensing toolbox_
 
 # wiros_processing
 
@@ -54,7 +54,7 @@ The simplest way to measure the phase bias at the receiver is to ensure that the
 
 2. Connect the attenuators to the input of the splitter, and one of the outputs of the other AC86u to the attenuators. Ideally you should terminate the other 3 antenna ports to cancel any crosstalk.
 
-3. Start the [csi_node](https://github.com/ucsdwcsng/wiros_csi_node) at both the transmitter and receiver ends. The transmitter should have packet injection turned on and the receiver should set its MAC filter to the address the transmitter is injecting with.
+3. Start the [csi_node](https://github.com/ucsdwcsng/wiros_csi) at both the transmitter and receiver ends. The transmitter should have packet injection turned on and the receiver should set its MAC filter to the address the transmitter is injecting with.
 
 4. Save the CSI data measured to a bag file, via `rosbag record /csi -O compensation_csi.bag`
 
