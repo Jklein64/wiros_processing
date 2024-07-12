@@ -8,7 +8,7 @@ from .algorithm import Algorithm
 
 class AoaParams:
     # algorithm parameters
-    algo: Algorithm  # algorithm to use
+    algo: str  # name of algorithm to use
     theta_min: float  # min value of theta/AoA samples (radians)
     theta_max: float  # max value of theta/AoA samples (radians)
     theta_count: int  # number of theta/AoA samples
@@ -23,7 +23,7 @@ class AoaParams:
     profile_type: "1D" | "2D" | "both" | "none"
 
     def __init__(self):
-        self.algo: Algorithm = Algorithm.from_string(rospy.get_param("~algo"))
+        self.algo = rospy.get_param("~algo")
         self.theta_min = rospy.get_param("~theta_min", -np.pi)
         self.theta_max = rospy.get_param("~theta_max", np.pi)
         self.theta_count = rospy.get_param("~theta_count", 180)

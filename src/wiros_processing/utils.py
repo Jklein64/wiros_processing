@@ -39,3 +39,21 @@ def array_from_wifi_message(msg: Wifi):
         csi[117] = csi[118]
 
     return csi
+
+
+# see https://stackoverflow.com/a/68052994
+def weak_lru(maxsize=128, typed=False):
+    'LRU Cache decorator that keeps a weak reference to "self". Shared by the entire class.'
+
+    def wrapper(func):
+        @functools.lru_cache(maxsize, typed)
+        def _func(_self, *args, **kwargs):
+            return func(_self(), *args, **kwargs)
+
+        @functools.wraps(func)
+        def inner(self, *args, **kwargs):
+            return _func(weakref.ref(self), *args, **kwargs)
+
+        return inner
+
+    return wrapper

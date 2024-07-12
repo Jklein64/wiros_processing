@@ -7,7 +7,7 @@ from rospy import Publisher, ROSInterruptException, Subscriber
 from std_msgs.msg import Header
 
 from ..constants import SUBCARRIER_FREQUENCIES
-from ..processing import array_from_wifi_message
+from ..utils import array_from_wifi_message
 from .correction_params import CorrectionParams
 
 
