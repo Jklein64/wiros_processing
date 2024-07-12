@@ -5,8 +5,9 @@ import weakref
 from typing import ClassVar
 
 import numpy as np
-from aoa_node.aoa_params import Params
-from common.constants import SUBCARRIER_FREQUENCIES, C
+
+from ..constants import SUBCARRIER_FREQUENCIES, C
+from .aoa_params import Params
 
 
 # see https://stackoverflow.com/a/68052994

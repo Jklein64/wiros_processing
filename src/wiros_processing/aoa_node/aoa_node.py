@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import rospy
-from aoa_node.params import Params
-from common.processing import array_from_wifi_message
 from rf_msgs.msg import Bearing, Profile1D, Profile2D, Wifi
 from rospy import Publisher, ROSInterruptException, Subscriber
+
+from ..processing import array_from_wifi_message
+from .params import Params
 
 
 class AoaNode:

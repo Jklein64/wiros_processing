@@ -2,12 +2,13 @@
 
 import numpy as np
 import rospy
-from common.constants import SUBCARRIER_FREQUENCIES
-from common.processing import array_from_wifi_message
-from correction_node.correction_params import CorrectionParams
 from rf_msgs.msg import Wifi
 from rospy import Publisher, ROSInterruptException, Subscriber
 from std_msgs.msg import Header
+
+from ..constants import SUBCARRIER_FREQUENCIES
+from ..processing import array_from_wifi_message
+from .correction_params import CorrectionParams
 
 
 class CorrectionNode:
@@ -49,7 +50,7 @@ class CorrectionNode:
         self.csi_pub.publish(msg)
 
 
-if __name__ == "__main__":
+def main():
     try:
         rospy.init_node("csi_clean_node", anonymous=True)
 

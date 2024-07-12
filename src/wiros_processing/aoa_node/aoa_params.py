@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 import rospy
-from aoa_node.algorithm import Algorithm
+
+from .algorithm import Algorithm
 
 
 class AoaParams:

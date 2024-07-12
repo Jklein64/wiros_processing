@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
-from common.constants import SUBCARRIER_INDICES
 from rf_msgs.msg import Wifi
+
+from .constants import SUBCARRIER_INDICES
 
 
 def array_from_wifi_message(msg: Wifi):

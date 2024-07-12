@@ -1,0 +1,6 @@
+#! /usr/env/bin python3
+
+from wiros_processing.correction_node import main
+
+if __name__ == "__main__":
+    main()
