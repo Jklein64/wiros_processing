@@ -71,12 +71,11 @@ class AoaNode:
                 self.profile2d_pub.publish(profile2d_msg)
 
         # publish 1D profile
-        if self.publish_profile1d:
-            profile1d_msg = Profile1d(
-                header=Header(stamp=rospy.Time.now()),
-                theta_count=self.params.theta_count,
-                theta_min=self.params.theta_min,
-                theta_max=self.params.theta_max,
-                intensity=np.ravel(np.mean(profile, axis=1)),
+        # warn if the node is taking too long during processing
+        self._time_stop = perf_counter()
+        self._elapsed.append(self._time_stop - self._time_start)
+        avg_elapsed = np.mean(self._elapsed)
+        if avg_elapsed > (1 / 30):
+            rospy.logwarn(
+                f"CSI data is at ~20-30 Hz, but aoa_node is at ~{1/avg_elapsed:.2f} Hz"
             )
-            self.profile1d_pub.publish(profile1d_msg)
