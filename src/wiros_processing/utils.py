@@ -25,35 +25,20 @@ def array_from_wifi_message(msg: Wifi):
     # modification prevalent in numpy.
     csi = csi.reshape((n_cols, n_rows, n_sub)).T
 
-    # these subcarriers are rotated. need to find justification for why this is the case
-    if bw == 80e6:
-        csi[:64] *= -1
-    if bw == 40e6:
-        csi[:64] *= -1j
+    # only apply corrections to raw data
+    n_sub_full = 2 ** (bw / 10e6)
+    if n_sub == n_sub_full:
+        # these subcarriers are rotated. need to find justification for why this is the case
+        if bw == 80e6:
+            csi[:64] *= -1
+        if bw == 40e6:
+            csi[:64] *= -1j
 
-    # store only relevant subcarriers
-    csi = csi[SUBCARRIER_INDICES[bw]]
+        # store only relevant subcarriers
+        csi = csi[SUBCARRIER_INDICES[bw]]
 
-    # unexplained correction factor
-    if bw == 80e6:
-        csi[117] = csi[118]
+        # unexplained correction factor
+        if bw == 80e6:
+            csi[117] = csi[118]
 
     return csi
-
-
-# see https://stackoverflow.com/a/68052994
-def weak_lru(maxsize=128, typed=False):
-    'LRU Cache decorator that keeps a weak reference to "self". Shared by the entire class.'
-
-    def wrapper(func):
-        @functools.lru_cache(maxsize, typed)
-        def _func(_self, *args, **kwargs):
-            return func(_self(), *args, **kwargs)
-
-        @functools.wraps(func)
-        def inner(self, *args, **kwargs):
-            return _func(weakref.ref(self), *args, **kwargs)
-
-        return inner
-
-    return wrapper

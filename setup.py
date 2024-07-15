@@ -5,7 +5,12 @@ from setuptools import setup
 
 # fetch values from package.xml
 setup_args = generate_distutils_setup(
-    packages=["wiros_processing", "wiros_processing.correction_node"],
+    packages=[
+        "csi_utils",
+        "wiros_processing",
+        "wiros_processing.correction_node",
+        "wiros_processing.aoa_node",
+    ],
     package_dir={"": "src"},
 )
 

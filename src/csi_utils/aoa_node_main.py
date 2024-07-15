@@ -350,17 +350,17 @@ class AoaNode:
         self._tau_range = np.linspace(
             self.d_thresh[0], self.d_thresh[1], self.num_d_steps
         )
-        self._aoa_pub = rospy.Publisher("/bearing", Bearing, queue_size=3)
+        self._aoa_pub = rospy.Publisher("bearing", Bearing, queue_size=3)
 
-        self._prof_pub = rospy.Publisher("/prof", Image, queue_size=3)
-        self._channel_pub = rospy.Publisher("/channel", Image, queue_size=3)
+        self._prof_pub = rospy.Publisher("prof", Image, queue_size=3)
+        self._channel_pub = rospy.Publisher("channel", Image, queue_size=3)
         self._bearing_pose_pub = rospy.Publisher(
-            "/bearing_pose", PoseStamped, queue_size=3
+            "bearing_pose", PoseStamped, queue_size=3
         )
-        self._ap_marker_publisher = rospy.Publisher("/ap_marker", Marker, queue_size=1)
+        self._ap_marker_publisher = rospy.Publisher("ap_marker", Marker, queue_size=1)
 
         if self.comp is None:
             rospy.logwarn("No compensation provided.")
 
-        rospy.Subscriber("/csi", Wifi, self.csi_callback, queue_size=1)
+        rospy.Subscriber("csi", Wifi, self.csi_callback, queue_size=1)
         rospy.spin()

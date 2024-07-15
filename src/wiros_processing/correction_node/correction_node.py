@@ -14,7 +14,7 @@ from .correction_params import CorrectionParams
 class CorrectionNode:
     def __init__(self, params: CorrectionParams):
         self.params = params
-        self.csi_pub = Publisher("/csi", Wifi, queue_size=3)
+        self.csi_pub = Publisher("csi", Wifi, queue_size=3)
 
     def csi_callback(self, msg: Wifi):
         # apply RSSI threshold
@@ -55,7 +55,7 @@ def main():
         rospy.init_node("csi_clean_node", anonymous=True)
 
         correction_node = CorrectionNode(CorrectionParams())
-        Subscriber("/csi_raw", Wifi, correction_node.csi_callback, queue_size=1)
+        Subscriber("csi_raw", Wifi, correction_node.csi_callback, queue_size=1)
         # continuously handle new csi data
         rospy.spin()
 
