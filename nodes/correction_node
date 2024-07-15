@@ -1,6 +1,17 @@
 #! /usr/env/bin python3
 
-from wiros_processing.correction_node import main
+import rospy
+from rf_msgs.msg import Wifi
+from wiros_processing.correction_node import CorrectionNode
 
 if __name__ == "__main__":
-    main()
+    try:
+        rospy.init_node("correction_node", anonymous=True)
+
+        correction_node = CorrectionNode()
+        rospy.Subscriber("csi_raw", Wifi, correction_node.csi_callback, queue_size=1)
+        # continuously handle new csi data
+        rospy.spin()
+
+    except rospy.ROSInterruptException:
+        pass

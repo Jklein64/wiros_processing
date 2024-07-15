@@ -1,9 +1,7 @@
-#! /usr/bin/env python3
-
 import numpy as np
 import rospy
 from rf_msgs.msg import Wifi
-from rospy import Publisher, ROSInterruptException, Subscriber
+from rospy import Publisher
 from std_msgs.msg import Header
 
 from ..constants import SUBCARRIER_FREQUENCIES
@@ -12,8 +10,8 @@ from .correction_params import CorrectionParams
 
 
 class CorrectionNode:
-    def __init__(self, params: CorrectionParams):
-        self.params = params
+    def __init__(self):
+        self.params = CorrectionParams()
         self.csi_pub = Publisher("csi", Wifi, queue_size=3)
 
     def csi_callback(self, msg: Wifi):
@@ -48,16 +46,3 @@ class CorrectionNode:
         msg.csi_real = np.ravel(np.real(csi))
         msg.csi_imag = np.ravel(np.imag(csi))
         self.csi_pub.publish(msg)
-
-
-def main():
-    try:
-        rospy.init_node("csi_clean_node", anonymous=True)
-
-        correction_node = CorrectionNode(CorrectionParams())
-        Subscriber("csi_raw", Wifi, correction_node.csi_callback, queue_size=1)
-        # continuously handle new csi data
-        rospy.spin()
-
-    except ROSInterruptException:
-        pass
