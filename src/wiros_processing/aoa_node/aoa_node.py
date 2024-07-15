@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import numpy as np
 import rospy
 from rf_msgs.msg import Bearing, Profile1d, Profile2d, Wifi
-from rospy import Publisher, ROSInterruptException, Subscriber
+from rospy import Publisher
 from std_msgs.msg import Header
 
 from ..utils import array_from_wifi_message
@@ -13,16 +14,16 @@ from .aoa_params import AoaParams
 class AoaNode:
     def __init__(self):
         self.params = AoaParams()
-        self.bearing_pub = Publisher("/bearing", Bearing, queue_size=3)
+        self.bearing_pub = Publisher("bearing", Bearing, queue_size=3)
 
         self.publish_profile1d = False
         self.publish_profile2d = False
 
-        if params.profile_type in {"1D", "both"}:
-            self.profile1d_pub = Publisher("/profile-1d", Profile1d, queue_size=3)
+        if self.params.profile_type in {"1D", "both"}:
+            self.profile1d_pub = Publisher("profile_1d", Profile1d, queue_size=3)
             self.publish_profile1d = True
-        if params.profile_type in {"2D", "both"}:
-            self.profile2d_pub = Publisher("/profile-2d", Profile2d, queue_size=3)
+        if self.params.profile_type in {"2D", "both"}:
+            self.profile2d_pub = Publisher("profile_2d", Profile2d, queue_size=3)
             self.publish_profile2d = True
 
         # maps (channel, bandwidth) tuples to algorithm instances
@@ -33,7 +34,7 @@ class AoaNode:
         csi = array_from_wifi_message(msg)
 
         # calculate AoA and profile
-        if ch_bw := (msg.chan, msg.bw) not in self.algo_instances:
+        if (ch_bw := (msg.chan, msg.bw)) not in self.algo_instances:
             self.algo_instances[ch_bw] = Algorithm.from_params(self.params, *ch_bw)
         theta, profile = self.algo_instances[ch_bw].evaluate(csi)
 
@@ -44,7 +45,7 @@ class AoaNode:
             txmac=msg.txmac,
             n_rx=msg.n_rows,
             n_tx=msg.n_cols,
-            seq=msg.seq,
+            seq=msg.seq_num,
             rssi=msg.rssi,
             aoa=theta,
         )
@@ -65,21 +66,8 @@ class AoaNode:
                     tau_count=self.params.tau_count,
                     tau_min=self.params.tau_min,
                     tau_max=self.params.tau_max,
-                    intensity=profile,
+                    intensity=np.ravel(profile),
                 )
                 self.profile2d_pub.publish(profile2d_msg)
 
         # publish 1D profile
-
-
-if __name__ == "__main__":
-    try:
-        rospy.init_node("aoa_node", anonymous=True)
-
-        aoa_node = AoaNode()
-        Subscriber("/csi", Wifi, aoa_node.csi_callback, queue_size=1)
-        # continuously handle new csi data
-        rospy.spin()
-
-    except ROSInterruptException:
-        pass

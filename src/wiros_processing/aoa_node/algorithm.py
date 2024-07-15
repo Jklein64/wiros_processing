@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import functools
-import weakref
 from collections import deque
 from typing import ClassVar
 
@@ -9,7 +7,6 @@ import numpy as np
 import scipy as sp
 
 from ..constants import SUBCARRIER_FREQUENCIES, C
-from ..utils import weak_lru
 from .aoa_params import AoaParams
 
 
@@ -36,21 +33,14 @@ class Algorithm:
         """
         Creates a steering vector for AoA with shape `(n_rx, len(theta_samples))`. If the `theta_samples` parameter is `None`, then this method uses samples determined by the parameters passed during initialization.
         """
-        return self._aoa_steering_vector(
-            self.channel,
-            self.bandwidth,
-            self.theta_samples if theta_samples is None else theta_samples,
-        )
-
-    @weak_lru(maxsize=16)
-    def _aoa_steering_vector(self, channel, bandwidth, theta_samples):
         # calculate wave number
-        freqs = 5e9 + channel * 5e6 + SUBCARRIER_FREQUENCIES[bandwidth]
+        freqs = 5e9 + self.channel * 5e6 + SUBCARRIER_FREQUENCIES[self.bandwidth * 1e6]
         k = 2 * np.pi * np.mean(freqs) / C
-        # helper variables
-        theta_samples = np.atleast_1d(theta_samples)
-        dx, dy = self.params.rx_position.T
+        # expand dims so broadcasting works later
+        dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
         # column j corresponds to steering vector for j'th theta sample
+        theta_samples = self.theta_samples if theta_samples is None else theta_samples
+        theta_samples = np.atleast_1d(theta_samples)
         A = np.repeat(np.expand_dims(theta_samples, axis=0), len(dx), axis=0)
         A = np.exp(-1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
         # A now has shape (n_rx, len(theta_samples))
@@ -60,16 +50,9 @@ class Algorithm:
         """
         Creates a steering vector for ToF with shape `(n_sub, len(tau_samples))`. If the `tau_samples` parameter is `None`, then this method uses samples determined by the parameters passed during initialization.
         """
-        return self._tof_steering_vector(
-            self.channel,
-            self.bandwidth,
-            self.tau_samples if tau_samples is None else tau_samples,
-        )
-
-    @weak_lru(maxsize=16)
-    def _tof_steering_vector(self, channel, bandwidth, tau_samples):
-        freqs = 5e9 + channel * 5e6 + SUBCARRIER_FREQUENCIES[bandwidth]
+        freqs = 5e9 + self.channel * 5e6 + SUBCARRIER_FREQUENCIES[self.bandwidth * 1e6]
         omega = 2 * np.pi * freqs / C
+        tau_samples = self.tau_samples if tau_samples is None else tau_samples
         tau_samples = np.atleast_1d(tau_samples)
         # column j corresponds to steering vector for the j'th tau sample
         B = np.exp(-1.0j * np.outer(omega, tau_samples))
@@ -81,17 +64,7 @@ class Algorithm:
         for subclass in cls.__subclasses__():
             if subclass.name == params.algo:
                 return subclass(params, channel, bandwidth)
-        raise NameError(f'Could not find an algorithm with name "{name}"')
-
-    def __eq__(self, other):
-        # needed for lru_cache
-        if other is None:
-            return False
-        return isinstance(other.__class__, self.__class__)
-
-    def __hash__(self):
-        # needed for lru_cache
-        return self.__class__.name
+        raise NameError(f'Could not find an algorithm with name "{params.algo}"')
 
 
 class CsiRoller:
@@ -129,7 +102,7 @@ class Svd(Algorithm):
     name = "full_svd"
 
     def __init__(self, params: AoaParams, channel, bandwidth):
-        super(params, channel, bandwidth)
+        super().__init__(params, channel, bandwidth)
         self.csi_roller = CsiRoller()
 
     def evaluate(self, new_csi):
@@ -143,7 +116,8 @@ class Svd(Algorithm):
         A = self.aoa_steering_vector()  # (n_rx, len(theta_samples))
         B = self.tof_steering_vector()  # (n_sub, len(tau_samples))
         profile = np.abs(A.conj().T @ aggregate_csi @ B)
-        theta_index, _ = np.unravel_index(np.argmax(profile), profile.shape)
+        # find theta corresponding to highest peak in intensity
+        theta_index = np.unravel_index(np.argmax(profile), profile.shape)[0]
         theta = self.theta_samples[theta_index]
         return (theta, profile)
 

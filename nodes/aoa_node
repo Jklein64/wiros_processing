@@ -1,0 +1,16 @@
+#! /usr/env/bin python3
+
+import rospy
+from rf_msgs.msg import Wifi
+from wiros_processing.aoa_node import AoaNode
+
+if __name__ == "__main__":
+    try:
+        rospy.init_node("aoa_node", anonymous=True)
+
+        aoa_node = AoaNode()
+        rospy.Subscriber("csi", Wifi, aoa_node.csi_callback, queue_size=1)
+        rospy.spin()
+
+    except rospy.ROSInterruptException:
+        pass
