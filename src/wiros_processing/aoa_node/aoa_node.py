@@ -29,6 +29,9 @@ class AoaNode:
         # maps (channel, bandwidth) tuples to algorithm instances
         self.algo_instances: dict[tuple[int, float], Algorithm] = {}
 
+        # store last csi message across csi and timer callbacks
+        self._last_msg: Wifi = None
+
     def csi_callback(self, msg: Wifi):
         # extract csi matrix
         csi = array_from_wifi_message(msg)
@@ -36,7 +39,14 @@ class AoaNode:
         # calculate AoA and profile
         if (ch_bw := (msg.chan, msg.bw)) not in self.algo_instances:
             self.algo_instances[ch_bw] = Algorithm.from_params(self.params, *ch_bw)
-        theta, profile = self.algo_instances[ch_bw].evaluate(csi)
+        self.algo_instances[ch_bw].csi_callback(csi)
+        self._last_msg = msg
+
+    def timer_callback(self, _: rospy.timer.TimerEvent):
+        if (msg := self._last_msg) is None:
+            return
+
+        theta, profile = self.algo_instances[msg.chan, msg.bw].evaluate()
 
         # publish bearing
         bearing_msg = Bearing(
@@ -53,7 +63,7 @@ class AoaNode:
 
         # publish 2D profile
         if self.publish_profile2d:
-            if len(np.squeeze(np.shape(profile))) <= 1:
+            if len(np.shape(np.squeeze(profile))) <= 1:
                 rospy.logwarn(
                     "Failed to publish a 2d profile because data did not have 2 meaningful dimensions."
                 )
@@ -71,11 +81,12 @@ class AoaNode:
                 self.profile2d_pub.publish(profile2d_msg)
 
         # publish 1D profile
-        # warn if the node is taking too long during processing
-        self._time_stop = perf_counter()
-        self._elapsed.append(self._time_stop - self._time_start)
-        avg_elapsed = np.mean(self._elapsed)
-        if avg_elapsed > (1 / 30):
-            rospy.logwarn(
-                f"CSI data is at ~20-30 Hz, but aoa_node is at ~{1/avg_elapsed:.2f} Hz"
+        if self.publish_profile1d:
+            profile1d_msg = Profile1d(
+                header=Header(stamp=rospy.Time.now()),
+                theta_count=self.params.theta_count,
+                theta_min=self.params.theta_min,
+                theta_max=self.params.theta_max,
+                intensity=np.ravel(np.mean(profile, axis=1)),
             )
+            self.profile1d_pub.publish(profile1d_msg)

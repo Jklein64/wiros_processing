@@ -13,6 +13,7 @@ class AoaParams:
     tau_min: float  # min value of tau/ToF samples (seconds)
     tau_max: float  # max value of tau/ToF samples (seconds)
     tau_count: int  # number of tau/ToF samples
+    rate: float  # target processing/publish rate (Hz)
 
     # device parameters
     rx_position: np.ndarray
@@ -30,3 +31,4 @@ class AoaParams:
         self.tau_count = rospy.get_param("~tau_count", 100)
         self.rx_position = np.asarray(rospy.get_param("~rx_position")).reshape((-1, 2))
         self.profile_type = rospy.get_param("~profile_type", "both")
+        self.rate = rospy.get_param("~rate", 3)

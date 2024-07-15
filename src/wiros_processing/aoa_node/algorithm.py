@@ -26,7 +26,10 @@ class Algorithm:
         tau_count = self.params.tau_count
         self.tau_samples = np.linspace(tau_min, tau_max, tau_count)
 
-    def evaluate(self, new_csi: np.ndarray) -> tuple[float, np.ndarray]:
+    def csi_callback(self, new_csi: np.ndarray):
+        raise NotImplementedError()
+
+    def evaluate(self) -> tuple[float, np.ndarray]:
         raise NotImplementedError()
 
     def aoa_steering_vector(self, theta_samples=None):
@@ -105,8 +108,10 @@ class Svd(Algorithm):
         super().__init__(params, channel, bandwidth)
         self.csi_roller = CsiRoller()
 
-    def evaluate(self, new_csi):
+    def csi_callback(self, new_csi):
         self.csi_roller.add(new_csi)
+
+    def evaluate(self):
         n_data, n_sub, n_rx = self.csi_roller.output_shape
         # create aggregate csi as largest right singular vector of stacked frames
         X = np.reshape(self.csi_roller.aggregate(), (n_data, n_sub * n_rx))
