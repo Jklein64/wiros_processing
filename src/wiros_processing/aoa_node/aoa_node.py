@@ -42,11 +42,18 @@ class AoaNode:
         self.algo_instances[ch_bw].csi_callback(csi)
         self._last_msg = msg
 
-    def timer_callback(self, _: rospy.timer.TimerEvent):
+    def timer_callback(self, t: rospy.timer.TimerEvent):
         if (msg := self._last_msg) is None:
             return
 
         theta, profile = self.algo_instances[msg.chan, msg.bw].evaluate()
+
+        # warn if timer callback took too long
+        if t.last_duration is not None:
+            if t.last_duration >= 1 / self.params.rate:
+                rospy.logwarn(
+                    f"Last timer callback took {t.last_duration:.4f} s; should take less than {1/self.params.rate:.4f} s"
+                )
 
         # publish bearing
         bearing_msg = Bearing(

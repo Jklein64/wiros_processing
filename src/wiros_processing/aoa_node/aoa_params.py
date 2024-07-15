@@ -31,4 +31,4 @@ class AoaParams:
         self.tau_count = rospy.get_param("~tau_count", 100)
         self.rx_position = np.asarray(rospy.get_param("~rx_position")).reshape((-1, 2))
         self.profile_type = rospy.get_param("~profile_type", "both")
-        self.rate = rospy.get_param("~rate", 3)
+        self.rate = rospy.get_param("~rate", 2)
