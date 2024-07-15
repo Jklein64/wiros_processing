@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+
+<!-- example launchfile for wiros_processing package -->
+
+<launch xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://gist.githubusercontent.com/nalt/dfa2abc9d2e3ae4feb82ca5608090387/raw/0fc62ead55d1264bc630fa1d1ad85b09bd94ba10/roslaunch.xsd"
+>
+    <node pkg="wiros_processing" type="correction_node" name="correction_node">
+        <param name="compensation_path" type="string"
+            value="/media/share/ros/bag/192.168.43.1-155.npy" />
+        <param name="rssi_threshold" type="int" value="-100" />
+        <param name="tof_offset_correction" type="bool" value="true" />
+    </node>
+
+    <node pkg="wiros_processing" type="aoa_node" name="aoa_node">
+        <param name="algo" type="string" value="full_svd" />
+
+        <param name="theta_min" type="double" value="-3.14" />
+        <param name="theta_max" type="double" value="3.14" />
+        <param name="theta_count" type="int" value="180" />
+
+        <param name="tau_min" type="double" value="-10" />
+        <param name="tau_max" type="double" value="40" />
+        <param name="tau_count" type="int" value="100" />
+
+        <param name="profile_type" type="string" value="both" />
+
+        <param name="rate" type="double" value="2" />
+
+        <rosparam param="rx_position"> [0, 0, 0, -0.026, 0, -0.052, 0, -0.078] </rosparam>
+
+    </node>
+</launch>

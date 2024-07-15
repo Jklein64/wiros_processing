@@ -142,6 +142,28 @@ class Music1D(Algorithm):
 class MatrixProduct(Algorithm):
     name = "fft"
 
+    def __init__(self, params: AoaParams, channel, bandwidth):
+        super().__init__(params, channel, bandwidth)
+        self.last_csi = None
+
+    def csi_callback(self, new_csi):
+        self.last_csi = new_csi
+
+    def evaluate(self):
+        csi = self.last_csi.transpose(2, 1, 0)  # (n_tx, n_rx, n_sub)
+        n_tx, *_ = csi.shape
+        A = self.aoa_steering_vector()  # (n_rx, len(theta_samples))
+        B = self.tof_steering_vector()  # (n_sub, len(tau_samples))
+        # get AoA and profile for each transmitter
+        thetas, profiles = [], []
+        for i in range(n_tx):
+            profile = np.abs(A.conj().T @ csi[i] @ B)
+            profiles.append(profile)
+            theta_index = np.unravel_index(np.argmax(profile), profile.shape)[0]
+            thetas.append(self.theta_samples[theta_index])
+        # average across transmitters
+        return (np.mean(thetas), np.mean(profiles, axis=0))
+
 
 class MatrixProduct1D(Algorithm):
     name = "aoa_only"

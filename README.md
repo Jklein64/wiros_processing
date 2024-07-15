@@ -6,11 +6,11 @@ ROS package providing utilities for CSI data correction and calculation of Angle
 
 This package contains two nodes:
 
-- `aoa_node.py` takes in input CSI from the `/csi` topic and publishes resulting AoA as a [`Bearing`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Bearing.msg) message to the `/bearing` topic, as well as optionally publishing 1d and 2d AoA/ToF profiles as [`Profile1d`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Profile1d.msg) and [`Profile2d`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Profile2d.msg) messages to `/profile1d` and `/profile2d` respectively
+- **aoa_node** takes in input CSI from the `/csi` topic and publishes resulting AoA as a [`Bearing`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Bearing.msg) message to the `/bearing` topic, as well as optionally publishing 1d and 2d AoA/ToF profiles as [`Profile1d`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Profile1d.msg) and [`Profile2d`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Profile2d.msg) messages to `/profile1d` and `/profile2d` respectively
 
-- `correction_node.py` applies compensation and corrects phase shifts in raw CSI data from `/csi_raw`, republishing a [`Wifi`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Wifi.msg) message to `/csi`
+- **correction_node** applies compensation and corrects phase shifts in raw CSI data from `/csi_raw`, republishing the [`Wifi`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Wifi.msg) message to `/csi`
 
-These nodes support arbitrary (planar) antenna array configurations allowing for linear, square, etc. array shapes. Several AoA-estimation algorithms including spotfi, 2d-fft, and some averaging-based expansions of 2d-fft are present, and [`algorithm.py`](https://github.com/Jklein64/wiros_processing/blob/main/src/aoa_node/algorithm.py) is written in such a way that it is very easy to add new ones.
+These nodes support arbitrary (planar) antenna array configurations allowing for linear, square, etc. array shapes, though some algorithms assume a linear arrangement. Several AoA-estimation algorithms including spotfi, 2d-fft, and some averaging-based expansions of 2d-fft are present, and [`algorithm.py`](https://github.com/Jklein64/wiros_processing/blob/main/src/aoa_node/algorithm.py) is written in such a way that it is very easy to add new ones.
 
 ## Computing AoA
 
@@ -33,6 +33,7 @@ All of the methods we use to compute AoA have the same fundamental idea, which i
 - `tau_min`, `tau_max`, `tau_count` : the ToF values to search over.
 - `profile_type` : One of `"1D"`, `"2D"`, `"both"`, or `"none"`. The type of profile or profiles to publish. Defaults to `"both"`.
 - `rx_position` : The position of the receiver antennas in the coordinate frame you wish to measure in. AoA is measured going counter-clockwise from the positive x-axis. Typically you would put the first antenna at the origin. More explanations as well as some example antenna array setups can be found in [antennas.md](antennas.md). Also note that SpotFi assumes standard uniform linear array, as the CSI-Smoothing algorithm isn't well-defined for other array shapes.
+- `rate` : Target publishing rate. The processing is controlled by a timer running at this rate, and is separate from the rate at which data is published to `/csi`.
 
 ### Correction Node
 
