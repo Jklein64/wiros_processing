@@ -72,20 +72,21 @@ class AoaNode:
         if self.publish_profile2d:
             if len(np.shape(np.squeeze(profile))) <= 1:
                 rospy.logwarn(
-                    "Failed to publish a 2d profile because data did not have 2 meaningful dimensions."
+                    "Faking a 2d profile because data did not have 2 meaningful dimensions."
                 )
-            else:
-                profile2d_msg = Profile2d(
-                    header=Header(stamp=rospy.Time.now()),
-                    theta_count=self.params.theta_count,
-                    theta_min=self.params.theta_min,
-                    theta_max=self.params.theta_max,
-                    tau_count=self.params.tau_count,
-                    tau_min=self.params.tau_min,
-                    tau_max=self.params.tau_max,
-                    intensity=np.ravel(profile),
-                )
-                self.profile2d_pub.publish(profile2d_msg)
+                profile = np.squeeze(profile)
+                profile = np.tile(np.atleast_2d(profile).T, self.params.tau_count)
+            profile2d_msg = Profile2d(
+                header=Header(stamp=rospy.Time.now()),
+                theta_count=self.params.theta_count,
+                theta_min=self.params.theta_min,
+                theta_max=self.params.theta_max,
+                tau_count=self.params.tau_count,
+                tau_min=self.params.tau_min,
+                tau_max=self.params.tau_max,
+                intensity=np.ravel(profile),
+            )
+            self.profile2d_pub.publish(profile2d_msg)
 
         # publish 1D profile
         if self.publish_profile1d:

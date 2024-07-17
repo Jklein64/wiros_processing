@@ -23,8 +23,8 @@ class AoaParams:
 
     def __init__(self):
         self.algo = rospy.get_param("~algo")
-        self.theta_min = rospy.get_param("~theta_min", -np.pi)
-        self.theta_max = rospy.get_param("~theta_max", np.pi)
+        self.theta_min = rospy.get_param("~theta_min", -np.pi / 2)
+        self.theta_max = rospy.get_param("~theta_max", np.pi / 2)
         self.theta_count = rospy.get_param("~theta_count", 180)
         self.tau_min = rospy.get_param("~tau_min", -10)
         self.tau_max = rospy.get_param("~tau_max", 40)
@@ -32,3 +32,4 @@ class AoaParams:
         self.rx_position = np.asarray(rospy.get_param("~rx_position")).reshape((-1, 2))
         self.profile_type = rospy.get_param("~profile_type", "both")
         self.rate = rospy.get_param("~rate", 2)
+        self.keep_last = rospy.get_param("~keep_last", 20)

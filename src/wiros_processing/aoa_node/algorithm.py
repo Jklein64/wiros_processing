@@ -71,7 +71,7 @@ class Algorithm:
 
 
 class CsiRoller:
-    def __init__(self, keep_last=20):
+    def __init__(self, keep_last):
         self._deque = deque()
         self._keep_last = keep_last
         # assumes shape is constant per-instance
@@ -102,21 +102,32 @@ class CsiRoller:
 
 
 class Svd(Algorithm):
+    """
+    2d DFT algorithm using SVD to merge data across frames and transmitters.
+    """
+
     name = "full_svd"
 
     def __init__(self, params: AoaParams, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
-        self.csi_roller = CsiRoller()
+        self.csi_roller = deque(maxlen=params.keep_last)
+        self.shape = None
 
     def csi_callback(self, new_csi):
-        self.csi_roller.add(new_csi)
+        self.shape = np.shape(new_csi)
+        for tx in range(self.shape[2]):
+            # the order parameter here is *extremely critical*. Linear algebra
+            # operations like SVD give meaning to columns and not rows, so
+            # vectorized matrices need to be stacked by columns. This is only
+            # the case when order="F"
+            self.csi_roller.append(np.ravel(new_csi[:, :, tx], order="F"))
 
     def evaluate(self):
-        n_data, n_sub, n_rx = self.csi_roller.output_shape
-        # create aggregate csi as largest right singular vector of stacked frames
-        X = np.reshape(self.csi_roller.aggregate(), (n_data, n_sub * n_rx))
-        _, _, vh = sp.sparse.linalg.svds(X, k=1, which="LM")
-        aggregate_csi = np.reshape(vh, (n_sub, n_rx)).T  #  (n_rx, n_sub)
+        n_sub, n_rx, _ = self.shape
+        # create aggregate csi as largest left singular vector of stacked frames
+        X = np.asarray(self.csi_roller).T  # (n_sub * n_rx, n_data)
+        u, _, _ = sp.sparse.linalg.svds(X, k=1, which="LM")
+        aggregate_csi = np.reshape(u, (n_rx, n_sub), order="F")  #  (n_rx, n_sub)
         # create profile and get AoA by comparing against steering vectors
         A = self.aoa_steering_vector()  # (n_rx, len(theta_samples))
         B = self.tof_steering_vector()  # (n_sub, len(tau_samples))
@@ -128,7 +139,28 @@ class Svd(Algorithm):
 
 
 class SvdReduced(Algorithm):
+    """
+    Implementation of WAIS algorithm, a 1d DFT algorithm that avoids needing ToF data.
+    """
+
     name = "rx_svd"
+
+    def __init__(self, params: AoaParams, channel, bandwidth):
+        super().__init__(params, channel, bandwidth)
+        self.csi_roller = CsiRoller(params.keep_last)
+
+    def csi_callback(self, new_csi):
+        self.csi_roller.add(new_csi)
+
+    def evaluate(self):
+        # average across n_data and find largest eigenvector
+        X = self.csi_roller.aggregate()  # (n_data, n_sub, n_rx)
+        Y = X.transpose(0, 2, 1) @ X.conj()  # (n_data, n_rx, n_rx)
+        _, w = sp.sparse.linalg.eigsh(np.sum(Y, axis=0), k=1, which="LM")
+        A = self.aoa_steering_vector()  # (n_rx, len(theta_samples))
+        profile = np.abs(np.atleast_2d(A.conj().T @ w))  # (len(theta_samples), 1)
+        theta = self.theta_samples[np.argmax(profile, axis=0)]
+        return (theta, profile)
 
 
 class Music(Algorithm):
@@ -167,6 +199,31 @@ class MatrixProduct(Algorithm):
 
 class MatrixProduct1D(Algorithm):
     name = "aoa_only"
+
+    def __init__(self, params: AoaParams, channel, bandwidth):
+        super().__init__(params, channel, bandwidth)
+        self.last_csi = None
+
+    def csi_callback(self, new_csi):
+        self.last_csi = new_csi
+
+    # untested!
+    def evaluate(self):
+        n_tx = self.last_csi.shape[2]
+        # matrix multiplication removes need for ToF
+        csi = self.last_csi.transpose(2, 1, 0)  # (n_tx, n_rx, n_sub)
+        M = csi @ csi.conj().transpose(0, 2, 1)  # (n_tx, n_rx, n_rx)
+        A = self.aoa_steering_vector()  # (n_rx, len(theta_samples))
+        # get AoA and 1d profile for each transmitter
+        thetas, profiles = [], []
+        for i in range(n_tx):
+
+            profile = np.abs(A.conj().T @ M[i])  # (len(theta_samples))
+            profiles.append(profile)
+            theta_index = np.unravel_index(np.argmax(profile), profile.shape)[0]
+            thetas.append(self.theta_samples[theta_index])
+        # average across transmitters
+        return (np.mean(thetas), np.mean(profiles, axis=0))
 
 
 class SpotFi(Algorithm):
