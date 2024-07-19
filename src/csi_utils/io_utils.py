@@ -15,7 +15,7 @@ def image_message(im_arr, t, im_type):
     # Fill the image data
     ros_image.height = im_arr.shape[0]
     ros_image.width = im_arr.shape[1]
-    ros_image.data = im_arr.ravel().tobytes()  # or .tostring()
+    ros_image.data = np.flipud(im_arr).ravel().tobytes()  # or .tostring()
     if im_type == "rgb8":
         ros_image.step = 3 * ros_image.width
     else:

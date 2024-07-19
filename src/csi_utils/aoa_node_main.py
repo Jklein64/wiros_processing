@@ -270,7 +270,6 @@ class AoaNode:
                         / (self._theta_range[-1] - self._theta_range[0])
                     )
                     profim[peak_idx, :, :] = [255, 0, 0]
-                    profim = np.flipud(profim)
                     im_msg = io_utils.image_message(profim, msg.header.stamp, "rgb8")
                     self._prof_pub.publish(im_msg)
                 else:
