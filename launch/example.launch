@@ -10,25 +10,23 @@
         <param name="compensation_path" type="string"
             value="/media/share/ros/bag/192.168.43.1-155.npy" />
         <param name="rssi_threshold" type="int" value="-100" />
-        <param name="tof_offset_correction" type="bool" value="true" />
     </node>
 
     <node pkg="wiros_processing" type="aoa_node" name="aoa_node">
         <param name="algo" type="string" value="full_svd" />
+        <param name="buffer_size" type="int" value="20" />
+        <param name="rate" type="double" value="20" />
+        <!-- 0 => no profiles, 1 => 1D profile, 2 => 2D profile, 3 => both 1D and 2D -->
+        <param name="profiles" type="int" value="3" />
 
-        <param name="theta_min" type="double" value="-3.14" />
-        <param name="theta_max" type="double" value="3.14" />
+        <param name="theta_min" type="double" value="-1.5707963268" />
+        <param name="theta_max" type="double" value="1.5707963268" />
         <param name="theta_count" type="int" value="180" />
-
         <param name="tau_min" type="double" value="-10" />
         <param name="tau_max" type="double" value="40" />
         <param name="tau_count" type="int" value="100" />
 
-        <param name="profile_type" type="string" value="both" />
-
-        <param name="rate" type="double" value="2" />
-
-        <rosparam param="rx_position"> [0, 0, 0, -0.026, 0, -0.052, 0, -0.078] </rosparam>
-
+        <!-- list of 2-element lists corresponding to the X and Y coordinates of each receiving antenna -->
+        <rosparam param="rx_position"> [[0.0, 0.0], [0.0, -0.026], [0.0, -0.052], [0.0, -0.078]] </rosparam>
     </node>
 </launch>

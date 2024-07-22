@@ -2,69 +2,42 @@ from __future__ import annotations
 
 import numpy as np
 import rospy
-from rf_msgs.msg import Profile2d
+from rf_msgs.msg import Bearing, Profile1d, Profile2d
 
-from ..constants import SUBCARRIER_FREQUENCIES, SUBCARRIER_SPACING, C
-
-COMPENSATION = np.load("/media/share/ros/bag/192.168.43.1-155.npy")
-
-
-class CircularBuffer:
-    def __init__(self, maxlen):
-        self.maxlen = maxlen
-        self.buffer = None
-        self.index = 0
-
-    def push(self, new_data):
-        if self.buffer is None:
-            shape = (*np.shape(new_data), self.maxlen)
-            self.buffer = np.zeros(shape, dtype=np.complex128)
-        self.buffer[..., self.index] = new_data
-        self.index = (self.index + 1) % self.maxlen
-
-    def asarray(self):
-        arr = self.buffer.view()
-        arr.flags.writeable = False
-        return arr
+from .algorithm import Algorithm
 
 
 class AoaNode:
+    """ROS node to extract AoA and ToF information from incoming CSI data.
+
+    Attributes:
+        params: Parameters for the node.
+        algo_instances: A dictionary mapping (channel, bw) to algo instances
+        bearing_pub: ROS publisher for the bearing topic
+        profile1d_pub: ROS publisher for the profile1d topic
+        profile2d_pub: ROS publisher for the profile2d topic
+        last_msg: Reference to the last Wifi message for timer callback
+        last_msg: Reference to the last (channel, bw) for timer callback
+    """
+
     def __init__(self):
-        self.params = AoaNode.Params()
-        theta_min = self.params.theta_min
-        theta_max = self.params.theta_max
-        theta_count = self.params.theta_count
-        tau_min = self.params.tau_min
-        tau_max = self.params.tau_max
-        tau_count = self.params.tau_count
-
-        self.theta_samples = np.linspace(theta_min, theta_max, theta_count)
-        self.tau_samples = np.linspace(tau_min, tau_max, tau_count)
-        self.buffer = CircularBuffer(maxlen=20)
-        self.profile_pub = rospy.Publisher("profile_2d", Profile2d, queue_size=10)
-
-    def raw_csi_callback(self, raw_csi):
-        # raw_csi is n_sub x n_rx x n_tx
-        csi = np.copy(raw_csi)
-        csi[:64] *= -1
-
-        csi = csi[SUBCARRIER_SPACING[80e6] + 128]
-
-        csi[117] = csi[118]
-
-        for tx in range(csi.shape[2]):
-            hpk = csi[:, :, tx]
-            line = np.polyfit(
-                SUBCARRIER_FREQUENCIES[80e6], np.unwrap(np.angle(hpk), axis=0), 1
-            )
-            tch = np.min(line[0, :])
-            subc_angle = np.exp(-1.0j * tch * SUBCARRIER_FREQUENCIES[80e6])
-            csi[:, :, tx] = hpk * subc_angle[:, np.newaxis]
-
-        csi *= COMPENSATION
-        return csi
+        self.params = Params()
+        self.algo_instances: dict[tuple[int, int], Algorithm] = {}
+        self.bearing_pub = rospy.Publisher("bearing", Bearing, queue_size=1000)
+        if self.params.profiles in {1, 3}:
+            self.profile1d_pub = rospy.Publisher("profile1d", Profile1d, queue_size=10)
+        if self.params.profiles in {2, 3}:
+            self.profile2d_pub = rospy.Publisher("profile2d", Profile2d, queue_size=10)
+        self.last_msg = None
+        self.last_ch_bw = None
 
     def csi_callback(self, msg):
+        """Reads incoming Wifi messages and passes arrays to the algorithm.
+
+        Args:
+            msg: the incoming Wifi message with CSI data and shape.
+        """
+        self.last_msg = msg
         n_sub = msg.n_sub
         n_rows = msg.n_rows
         n_cols = msg.n_cols
@@ -72,85 +45,94 @@ class AoaNode:
         csi_real = np.reshape(msg.csi_real, (n_sub, n_rows, n_cols), order="F")
         csi_imag = np.reshape(msg.csi_imag, (n_sub, n_rows, n_cols), order="F")
         csi = csi_real + 1.0j * csi_imag.astype(np.complex128)
-        csi = self.raw_csi_callback(csi)
+        # instantiate algorithm for channel and bandwidth
+        if (ch_bw := (msg.chan, msg.bw * 1e6)) not in self.algo_instances:
+            self.algo_instances[ch_bw] = Algorithm.from_params(self.params, *ch_bw)
+        # give algorithm instance the csi data
+        self.algo_instances[ch_bw].csi_callback(csi)
+        self.last_ch_bw = ch_bw
 
-        n_sub, n_rx, n_tx = np.shape(csi)
-        A = self.aoa_steering_vector()  # (n_rx, len(theta_samples))
-        B = self.tof_steering_vector()  # (n_sub, len(theta_samples))
-        # # treat each tx as if it was a separate measurement
-        for tx in range(n_tx):
-            self.buffer.push(np.reshape(csi[:, :, tx], (-1,), order="F"))
-        X = self.buffer.asarray()  # (n_sub * n_rx, n_data)
-        # use first principal component of csi measurement autocorrelation
-        u, _, _ = np.linalg.svd(X)
-        csi = np.reshape(u[:, 0], (n_sub, n_rx), order="F")
+    def timer_callback(self, _: rospy.timer.TimerEvent):
+        """Uses the selected algorithm to evaluate the AoA/ToF profile.
 
-        profile = np.abs(A.conj().T @ csi.conj().T @ B)
-        profile_msg = Profile2d(
+        The evaluation and publishing is determined by the rate parameter, and is
+        separate from the rate at which the CSI data is received. This is to handle
+        cases where the algorithm cannot run faster than 20-30 Hz.
+        """
+        profile = self.algo_instances[self.last_ch_bw].evaluate()
+
+        if self.params.profiles in {1, 3}:
+            # flatten 2d profile by picking most likely tau
+            tau_index = np.argmax(np.sum(profile, axis=0))
+            profile1d = profile[:, tau_index]
+
+            profile1d_msg = Profile1d(
+                header=rospy.Header(stamp=rospy.Time.now()),
+                theta_count=self.params.theta_count,
+                theta_min=self.params.theta_min,
+                theta_max=self.params.theta_max,
+                intensity=profile1d,
+            )
+            self.profile1d_pub.publish(profile1d_msg)
+
+        if self.params.profiles in {2, 3}:
+            profile2d_msg = Profile2d(
+                header=rospy.Header(stamp=rospy.Time.now()),
+                theta_count=self.params.theta_count,
+                theta_min=self.params.theta_min,
+                theta_max=self.params.theta_max,
+                tau_count=self.params.tau_count,
+                tau_min=self.params.tau_min,
+                tau_max=self.params.tau_max,
+                intensity=np.ravel(profile),
+            )
+            self.profile2d_pub.publish(profile2d_msg)
+
+        # publish bearing
+        profile_shape = (self.params.theta_count, self.params.tau_count)
+        # pylint: disable-next=unbalanced-tuple-unpacking
+        theta_index, _ = np.unravel_index(np.argmax(profile), profile_shape)
+        bearing_msg = Bearing(
             header=rospy.Header(stamp=rospy.Time.now()),
-            theta_count=self.params.theta_count,
-            theta_min=self.params.theta_min,
-            theta_max=self.params.theta_max,
-            tau_count=self.params.tau_count,
-            tau_min=self.params.tau_min,
-            tau_max=self.params.tau_max,
-            intensity=np.ravel(profile),
+            ap_id=self.last_msg.ap_id,
+            txmac=self.last_msg.txmac,
+            n_rx=self.last_msg.n_rows,
+            n_tx=self.last_msg.n_cols,
+            seq=self.last_msg.seq_num,
+            rssi=self.last_msg.rssi,
+            aoa=self.algo_instances[self.last_ch_bw].theta_samples[theta_index],
         )
-        self.profile_pub.publish(profile_msg)
+        self.bearing_pub.publish(bearing_msg)
 
-    def aoa_steering_vector(self, theta_samples=None):
-        """
-        Creates a steering vector for AoA with shape `(n_rx, len(theta_samples))`. If the `theta_samples` parameter is `None`, then this method uses samples determined by the parameters passed during initialization.
-        """
-        # channel is 155, bandwidth is 80
-        freqs = 5e9 + 155 * 5e6 + SUBCARRIER_FREQUENCIES[80e6]
-        # calculate wave number
-        k = 2 * np.pi * np.mean(freqs) / C
-        # expand dims so broadcasting works later
-        dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
-        # column j corresponds to steering vector for j'th theta sample
-        theta_samples = self.theta_samples if theta_samples is None else theta_samples
-        theta_samples = np.atleast_1d(theta_samples)
-        A = np.repeat(np.expand_dims(theta_samples, axis=0), len(dx), axis=0)
-        A = np.exp(-1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
-        # A now has shape (n_rx, len(theta_samples))
-        return A
 
-    def tof_steering_vector(self, tau_samples=None):
-        """
-        Creates a steering vector for ToF with shape `(n_sub, len(tau_samples))`. If the `tau_samples` parameter is `None`, then this method uses samples determined by the parameters passed during initialization.
-        """
-        # channel is 155, bandwidth is 80
-        freqs = 5e9 + 155 * 5e6 + SUBCARRIER_FREQUENCIES[80e6]
-        # f_delta = freqs - freqs[0]
-        omega = 2 * np.pi * freqs / C
-        tau_samples = self.tau_samples if tau_samples is None else tau_samples
-        tau_samples = np.atleast_1d(tau_samples)
-        # column j corresponds to steering vector for the j'th tau sample
-        # B = np.exp(-1.0j * np.outer(2 * np.pi * f_delta, tau_samples))
-        B = np.exp(-1.0j * np.outer(omega, tau_samples))
-        # B now has shape (n_sub, len(tau_samples))
-        return B
+class Params:
+    """Parameters for the AoaNode.
 
-    class Params:
-        # algorithm parameters
-        theta_min: float  # min value of theta/AoA samples (radians)
-        theta_max: float  # max value of theta/AoA samples (radians)
-        theta_count: int  # number of theta/AoA samples
-        tau_min: float  # min value of tau/ToF samples (seconds)
-        tau_max: float  # max value of tau/ToF samples (seconds)
-        tau_count: int  # number of tau/ToF samples
-        buffer_size: int  # number of elements to keep in the circular buffer
-        rx_position: np.ndarray
+    Attributes:
+        theta_min: Min value of theta/AoA samples (radians).
+        theta_max: Max value of theta/AoA samples (radians).
+        theta_count: Number of theta/AoA samples.
+        tau_min: Min value of tau/ToF samples (seconds).
+        tau_max: Max value of tau/ToF samples (seconds).
+        tau_count: Number of tau/ToF samples.
+        buffer_size: Size of circular CSI buffer.
+        rate: Target processing/publish rate (Hz).
+        algo: Name of the direction-finding algorithm to use.
+        profiles: Which, if any, of 1D and 2D profiles to compute.
+    """
 
-        def __init__(self):
-            self.theta_min = -np.pi / 2
-            self.theta_max = np.pi / 2
-            self.theta_count = 180
-            self.tau_min = -10
-            self.tau_max = 40
-            self.tau_count = 100
-            self.rx_position = np.array(
-                [0, 0, 0, -0.026, 0, -0.052, 0, -0.078]
-            ).reshape((-1, 2))
-            self.buffer_size = 20
+    def __init__(self):
+        # algorithm
+        self.theta_min = rospy.get_param("~theta_min", -np.pi / 2)
+        self.theta_max = rospy.get_param("~theta_max", np.pi / 2)
+        self.theta_count = rospy.get_param("~theta_count", 180)
+        self.tau_min = rospy.get_param("~tau_min", -10)
+        self.tau_max = rospy.get_param("~tau_max", 40)
+        self.tau_count = rospy.get_param("~tau_count", 100)
+        self.buffer_size = rospy.get_param("~buffer_size", 20)
+        self.rx_position = np.array(rospy.get_param("~rx_position"))
+
+        # ros
+        self.rate = rospy.get_param("~rate", 20)
+        self.algo = rospy.get_param("~algo", "full_svd")
+        self.profiles = rospy.get_param("~profiles", 3)

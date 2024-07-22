@@ -9,8 +9,11 @@ if __name__ == "__main__":
         rospy.init_node("aoa_node", anonymous=True)
 
         aoa_node = AoaNode()
-        rospy.Subscriber("csi_raw", Wifi, aoa_node.csi_callback, queue_size=1)
+        period = rospy.Duration(1 / aoa_node.params.rate)
+        timer = rospy.Timer(period, aoa_node.timer_callback)
+        rospy.Subscriber("csi", Wifi, aoa_node.csi_callback, queue_size=1)
         rospy.spin()
+        timer.shutdown()
 
     except rospy.ROSInterruptException:
         pass

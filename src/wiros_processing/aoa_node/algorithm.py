@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 from typing_extensions import override
 
 from ..constants import SUBCARRIER_FREQUENCIES, C
-from .aoa_params import AoaParams
+
+if TYPE_CHECKING:
+    # avoids circular import
+    from .aoa_node import Params
 
 
 class Algorithm:
@@ -18,13 +21,15 @@ class Algorithm:
 
     Attributes:
         name: the name of the algorithm. Used to match string to class.
-        theta_samples: theta_count values between theta_min and theta_max in radians
-        tau_samples: tau_count values between tau_min and tau_max in nanoseconds
+        channel: the WiFi channel of the provided CSI matrices.
+        bandwidth: the WiFi bandwidth of the provided CSI matrices.
+        theta_samples: theta_count values between theta_min and theta_max in radians.
+        tau_samples: tau_count values between tau_min and tau_max in nanoseconds.
     """
 
     name: ClassVar[str]
 
-    def __init__(self, params: AoaParams, channel, bandwidth):
+    def __init__(self, params: Params, channel, bandwidth):
         self.params = params
         self.channel = channel
         self.bandwidth = bandwidth
@@ -48,79 +53,54 @@ class Algorithm:
         """
         raise NotImplementedError()
 
-    def evaluate(self) -> tuple[float, np.ndarray]:
+    def evaluate(self) -> np.ndarray:
         """Extracts AoA and ToF information.
 
         Returns:
-            A tuple containing the most likely AoA (in radians) and the 2d profile with
-            shape (theta_count, tau_count) where larger values correspond to increased
-            likelihood that the AoA/ToF combination is correct.
+            A 2d profile with shape (theta_count, tau_count) where larger values
+            correspond to increased likelihood that the AoA/ToF combination is correct.
         """
         raise NotImplementedError()
 
-    def aoa_steering_vector(self, theta_samples=None):
+    def aoa_steering_vector(self):
         """Creates an AoA steering vector based on this instance's params.
 
         Returns:
-            An ndarray with shape (n_rx, theta_count)
+            An ndarray with shape (n_rx, theta_count).
         """
-        # channel is 155, bandwidth is 80
-        freqs = 5e9 + 155 * 5e6 + SUBCARRIER_FREQUENCIES[self.bandwidth * 1e6]
+        freqs = 5e9 + self.channel * 5e6 + SUBCARRIER_FREQUENCIES[self.bandwidth]
         # calculate wave number
         k = 2 * np.pi * np.mean(freqs) / C
         # expand dims so broadcasting works later
         dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
         # column j corresponds to steering vector for j'th theta sample
-        theta_samples = np.atleast_1d(self.theta_samples)
-        A = np.repeat(np.expand_dims(theta_samples, axis=0), len(dx), axis=0)
+        A = np.repeat(np.expand_dims(self.theta_samples, axis=0), len(dx), axis=0)
         A = np.exp(-1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
-        # A now has shape (n_rx, len(theta_samples))
+        # A now has shape (n_rx, theta_count)
         return A
-        # # calculate wave number
-        # freqs = 5e9 + self.channel * 5e6 + SUBCARRIER_FREQUENCIES[self.bandwidth * 1e6]
-        # k = 2 * np.pi * np.mean(freqs) / C
-        # # expand dims so broadcasting works later
-        # dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
-        # # column j corresponds to steering vector for j'th theta sample
-        # theta_samples = np.atleast_1d(self.theta_samples)
-        # A = np.repeat(np.expand_dims(theta_samples, axis=0), len(dx), axis=0)
-        # A = np.exp(-1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
-        # # A now has shape (n_rx, theta_count)
-        # return A
 
-    def tof_steering_vector(self, tau_samples=None):
+    def tof_steering_vector(self):
         """
         Creates a ToF steering vector based on this instance's params.
 
         Returns:
-            An ndarray with shape (n_sub, tau_count)
+            An ndarray with shape (n_sub, tau_count).
         """
-        # channel is 155, bandwidth is 80
-        freqs = 5e9 + 155 * 5e6 + SUBCARRIER_FREQUENCIES[self.bandwidth * 1e6]
-        # f_delta = freqs - freqs[0]
+        freqs = 5e9 + self.channel * 5e6 + SUBCARRIER_FREQUENCIES[self.bandwidth]
         omega = 2 * np.pi * freqs / C
-        tau_samples = np.atleast_1d(self.tau_samples)
         # column j corresponds to steering vector for the j'th tau sample
-        # B = np.exp(-1.0j * np.outer(2 * np.pi * f_delta, tau_samples))
-        B = np.exp(-1.0j * np.outer(omega, tau_samples))
-        # B now has shape (n_sub, len(tau_samples))
+        B = np.exp(-1.0j * np.outer(omega, self.tau_samples))
+        # B now has shape (n_sub, tau_count)
         return B
-        # freqs = 5e9 + self.channel * 5e6 + SUBCARRIER_FREQUENCIES[self.bandwidth * 1e6]
-        # omega = 2 * np.pi * freqs / C
-        # tau_samples = np.atleast_1d(self.tau_samples)
-        # # column j corresponds to steering vector for the j'th tau sample
-        # B = np.exp(-1.0j * np.outer(omega, tau_samples))
-        # # B now has shape (n_sub, len(tau_samples))
-        # return B
 
     @classmethod
-    def from_params(cls, params: AoaParams, channel, bandwidth):
+    def from_params(cls, params: Params, channel, bandwidth):
         """Instantiates an algorithm with the given parameters, channel, and bandwidth.
 
         Args:
-            params: aoa_node parameters object, which include algorithm name
-            channel: the WiFi channel corresponding to the CSI matrices
-            bandwidth: the WiFi bandwidth corresponding to the CSI matrices
+            params: aoa_node parameters object, which include algorithm name.
+            channel: the WiFi channel corresponding to the CSI matrices.
+            bandwidth: the WiFi bandwidth corresponding to the CSI matrices.
         """
         for subclass in cls.__subclasses__():
             if subclass.name == params.algo:
@@ -181,37 +161,35 @@ class Svd(Algorithm):
 
     name = "full_svd"
 
-    def __init__(self, params: AoaParams, channel, bandwidth):
+    def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
-        self.buffer = CircularBuffer(maxlen=params.keep_last)
-        self.csi_shape = None
-        self.csi = None
+        self.buffer = CircularBuffer(maxlen=params.buffer_size)
+        self.n_sub = None
+        self.n_rx = None
 
     @override
     def csi_callback(self, new_csi):
-        self.csi = new_csi
-        if self.csi_shape is None:
-            self.csi_shape = np.shape(new_csi)
-        # # treat each tx as if it was a separate measurement
-        for tx in range(self.csi_shape[2]):
+        n_sub, n_rx, n_tx = np.shape(new_csi)
+        # store shape for later
+        if self.n_sub is None:
+            self.n_sub = n_sub
+        if self.n_rx is None:
+            self.n_rx = n_rx
+
+        for tx in range(n_tx):
+            # treat each tx as if it was a separate measurement
             self.buffer.push(np.reshape(new_csi[:, :, tx], (-1,), order="F"))
 
     @override
     def evaluate(self):
-        n_sub, n_rx, _ = self.csi_shape
         A = self.aoa_steering_vector()  # (n_rx, theta_count)
         B = self.tof_steering_vector()  # (n_sub, tau_count)
-        # X = self.buffer.asarray()  # (n_sub * n_rx, n_data)
-        # # use first principal component of csi measurements
-        # u, _, _ = np.linalg.svd(X)
-        # csi = np.reshape(u[:, 0], (n_sub, n_rx), order="F")
-        csi = self.csi[:, :, 0]
-        # result will have peaks for correct theta/tau
-        profile = np.abs(A.conj().T @ csi.conj().T @ B)
-        # find theta corresponding to highest peak in intensity
-        theta_index = np.unravel_index(np.argmax(profile), profile.shape)[0]
-        theta = self.theta_samples[theta_index]
-        return (theta, profile)
+        X = self.buffer.asarray()  # (n_sub * n_rx, n_data)
+        # use first principal component of flattened csi measurements
+        u, _, _ = np.linalg.svd(X)
+        csi = np.reshape(u[:, 0], (self.n_sub, self.n_rx), order="F")
+        # compute (theta_count, tau_count) profile
+        return np.abs(A.conj().T @ csi.conj().T @ B)
 
 
 class SvdReduced(Algorithm):
@@ -221,7 +199,7 @@ class SvdReduced(Algorithm):
 
     name = "rx_svd"
 
-    def __init__(self, params: AoaParams, channel, bandwidth):
+    def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
 
     def csi_callback(self, new_csi): ...
@@ -240,7 +218,7 @@ class Music1D(Algorithm):
 class MatrixProduct(Algorithm):
     name = "fft"
 
-    def __init__(self, params: AoaParams, channel, bandwidth):
+    def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
 
     def csi_callback(self, new_csi): ...
@@ -251,15 +229,13 @@ class MatrixProduct(Algorithm):
 class MatrixProduct1D(Algorithm):
     name = "aoa_only"
 
-    def __init__(self, params: AoaParams, channel, bandwidth):
+    def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
 
     def csi_callback(self, new_csi): ...
 
-    # untested!
     def evaluate(self): ...
 
 
 class SpotFi(Algorithm):
-    name = "spotfi"
     name = "spotfi"

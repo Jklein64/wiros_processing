@@ -10,29 +10,19 @@ This package contains two nodes:
 
 - **correction_node** applies compensation and corrects phase shifts in raw CSI data from `/csi_raw`, republishing the [`Wifi`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Wifi.msg) message to `/csi`
 
-These nodes support arbitrary (planar) antenna array configurations allowing for linear, square, etc. array shapes, though some algorithms assume a linear arrangement. Several AoA-estimation algorithms including spotfi, 2d-fft, and some averaging-based expansions of 2d-fft are present, and [`algorithm.py`](https://github.com/Jklein64/wiros_processing/blob/main/src/aoa_node/algorithm.py) is written in such a way that it is very easy to add new ones.
-
-## Computing AoA
-
-All of the methods we use to compute AoA have the same fundamental idea, which is to compare the space of steering vectors with the received channel, sort of like beamforming in reverse. We provide several algorithms out-of-the-box for different compute/accuracy/time-averaging considerations.
+These nodes support arbitrary (planar) antenna array configurations allowing for linear, square, etc. array shapes, though some algorithms assume a linear arrangement. Several AoA-estimation algorithms including spotfi, 2d-fft, and some averaging-based expansions of 2d-fft are present, and [algorithm.py](https://github.com/Jklein64/wiros_processing/blob/main/src/aoa_node/algorithm.py) is written in such a way that it is very easy to add new ones.
 
 ## Parameters
 
 ### AoA Node
 
-- `algo` : The algorithm to use. Provided are:
-
-  - `aoa_only`
-  - `fft`
-  - `rx_svd`
-  - `full_svd`
-  - `music`
-  - `spotfi`
+- `algo` : The algorithm to use. See the algorithms section of this page or the names in [algorithm.py](src/wiros_processing/aoa_node/algorithm.py).
 
 - `theta_min`, `theta_max`, `theta_count` : the AoA values to search over.
 - `tau_min`, `tau_max`, `tau_count` : the ToF values to search over.
-- `profile_type` : One of `"1D"`, `"2D"`, `"both"`, or `"none"`. The type of profile or profiles to publish. Defaults to `"both"`.
+- `profiles` : One of `0`, `1`, `2`, or `3`. The type of profile or profiles to publish. `1` and `2` are for 1d-only and 2d-only; `3` is both. Defaults to `3`. 
 - `rx_position` : The position of the receiver antennas in the coordinate frame you wish to measure in. AoA is measured going counter-clockwise from the positive x-axis. Typically you would put the first antenna at the origin. More explanations as well as some example antenna array setups can be found in [antennas.md](antennas.md). Also note that SpotFi assumes standard uniform linear array, as the CSI-Smoothing algorithm isn't well-defined for other array shapes.
+- `buffer_size` : The size of the circular buffer for CSI data.
 - `rate` : Target publishing rate. The processing is controlled by a timer running at this rate, and is separate from the rate at which data is published to `/csi`.
 
 ### Correction Node
@@ -40,8 +30,6 @@ All of the methods we use to compute AoA have the same fundamental idea, which i
 - `rssi_threshold` : Only keep CSI for frames where RSSI is above this limit. Filters out poor-quality measurements.
 
 - `compensation_array` : Optional path to a [compensation file](#collecting-compensation-data). These are channel-specific files containing calibration values for the measured phase. Compensation files should be stored in the format `{receiver IP}-{channel number}.npy`, e.g. `192.168.1.1-36.npy`. This repo only supports using one channel's compensation file at a time.
-
-- `tof_offset_correction` : Try to shift TOF to 0 by fitting a complex exponential to subcarrier phase and then dividing it out. Helps remove CFO, NTS offset.
 
 ## Collecting Compensation Data
 
@@ -68,7 +56,7 @@ Compensation files follow the naming convention `{IP}-{chanspec}.npy`. NOTE: The
 
 ## Algorithms
 
-Several algorithms are provided, more will be added in the future.
+All of the methods we use to compute AoA have the same fundamental idea, which is to compare the space of steering vectors with the received channel, sort of like beamforming in reverse. We provide several algorithms out-of-the-box for different compute/accuracy/time-averaging considerations.
 
 ### aoa_only
 
