@@ -9,7 +9,7 @@ if __name__ == "__main__":
         rospy.init_node("correction_node", anonymous=True)
 
         correction_node = CorrectionNode()
-        rospy.Subscriber("csi_raw", Wifi, correction_node.csi_callback, queue_size=1)
+        rospy.Subscriber("csi_raw", Wifi, correction_node.csi_callback, queue_size=1000)
         # continuously handle new csi data
         rospy.spin()
 
