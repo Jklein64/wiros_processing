@@ -59,6 +59,9 @@ class AoaNode:
         separate from the rate at which the CSI data is received. This is to handle
         cases where the algorithm cannot run faster than 20-30 Hz.
         """
+        if self.last_ch_bw is None:
+            return
+
         profile = self.algo_instances[self.last_ch_bw].evaluate()
 
         if self.params.profiles in {1, 3}:

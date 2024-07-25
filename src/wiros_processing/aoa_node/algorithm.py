@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 from typing_extensions import override
 
-from ..constants import SUBCARRIER_FREQUENCIES, C
+from ..constants import USABLE_SUBCARRIER_FREQUENCIES, C
 
 if TYPE_CHECKING:
     # avoids circular import
@@ -68,9 +68,8 @@ class Algorithm:
         Returns:
             An ndarray with shape (n_rx, theta_count).
         """
-        freqs = 5e9 + self.channel * 5e6 + SUBCARRIER_FREQUENCIES[self.bandwidth]
         # calculate wave number
-        k = 2 * np.pi * np.mean(freqs) / C
+        k = 2 * np.pi * np.mean(USABLE_SUBCARRIER_FREQUENCIES) / C
         # expand dims so broadcasting works later
         dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
         # column j corresponds to steering vector for j'th theta sample
@@ -86,8 +85,7 @@ class Algorithm:
         Returns:
             An ndarray with shape (n_sub, tau_count).
         """
-        freqs = 5e9 + self.channel * 5e6 + SUBCARRIER_FREQUENCIES[self.bandwidth]
-        omega = 2 * np.pi * freqs / C
+        omega = 2 * np.pi * USABLE_SUBCARRIER_FREQUENCIES / C
         # column j corresponds to steering vector for the j'th tau sample
         B = np.exp(-1.0j * np.outer(omega, self.tau_samples))
         # B now has shape (n_sub, tau_count)
@@ -184,60 +182,28 @@ class Svd(Algorithm):
 
     @override
     def evaluate(self):
-        A = self.aoa_steering_vector()  # (n_rx, theta_count)
-        B = self.tof_steering_vector()  # (n_sub, tau_count)
         X = self.buffer.asarray()  # (n_sub * n_rx, n_data)
         # use first principal component of flattened csi measurements
         u, _, _ = np.linalg.svd(X)
         csi = np.reshape(u[:, 0], (self.n_sub, self.n_rx), order="F")
         # compute (theta_count, tau_count) profile
-        return np.abs(A.conj().T @ csi.conj().T @ B)
-
-
-class SvdReduced(Algorithm):
-    """
-    Implementation of WAIS algorithm, a 1d DFT algorithm that avoids needing ToF data.
-    """
-
-    name = "rx_svd"
-
-    def __init__(self, params: Params, channel, bandwidth):
-        super().__init__(params, channel, bandwidth)
-
-    def csi_callback(self, new_csi): ...
-
-    def evaluate(self): ...
-
-
-class Music(Algorithm):
-    name = "music"
+        return np.abs(self.A.conj().T @ csi.conj().T @ self.B)
 
 
 class Music1D(Algorithm):
-    name = "aoa_music"
+    """
+    1D MUSIC algorithm.
+    """
 
-
-class MatrixProduct(Algorithm):
-    name = "fft"
-
-    def __init__(self, params: Params, channel, bandwidth):
-        super().__init__(params, channel, bandwidth)
-
-    def csi_callback(self, new_csi): ...
-
-    def evaluate(self): ...
-
-
-class MatrixProduct1D(Algorithm):
-    name = "aoa_only"
+    name = "music1D"
 
     def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
 
-    def csi_callback(self, new_csi): ...
+    @override
+    def csi_callback(self, new_csi):
+        pass
 
-    def evaluate(self): ...
-
-
-class SpotFi(Algorithm):
-    name = "spotfi"
+    @override
+    def evaluate(self):
+        pass

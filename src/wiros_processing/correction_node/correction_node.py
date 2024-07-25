@@ -4,7 +4,7 @@ from rf_msgs.msg import Wifi
 from rospy import Publisher
 from std_msgs.msg import Header
 
-from ..constants import SUBCARRIER_FREQUENCIES, SUBCARRIER_SPACING
+from ..constants import F_DELTA, USABLE_SUBCARRIER_INDICES
 
 
 class CorrectionNode:
@@ -50,13 +50,13 @@ class CorrectionNode:
         elif bandwidth == 40e6:
             csi[:64] *= -1j
 
-        csi = csi[SUBCARRIER_SPACING[bandwidth] + 128]
+        csi = csi[USABLE_SUBCARRIER_INDICES]
 
         if bandwidth == 80e6:
             csi[117] = csi[118]
 
         # ToF correction
-        freqs = SUBCARRIER_FREQUENCIES[bandwidth]
+        freqs = (USABLE_SUBCARRIER_INDICES - 128) * F_DELTA
         for tx in range(csi.shape[2]):
             hpk = csi[:, :, tx]
             line = np.polyfit(freqs, np.unwrap(np.angle(hpk), axis=0), 1)
