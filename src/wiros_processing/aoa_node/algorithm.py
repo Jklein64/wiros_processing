@@ -228,24 +228,31 @@ class Wiros(Algorithm):
 
 class Music1D(Algorithm):
     """
-    1D MUSIC algorithm.
+    1D MUSIC algorithm. Uses Wiros rx_svd-like approach to synthesize CSI
     """
 
     name = "music1d"
 
     def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
-        self.buffer = CircularBuffer(maxlen=self.params.buffer_size)
-        self.A = self.aoa_steering_vector()
+        self.buffer = CircularBuffer(maxlen=params.buffer_size)
+        self.A = self.aoa_steering_vector()  # (n_rx, theta_count)
+        self.n_sub = None
+        self.n_rx = None
 
     @override
     def csi_callback(self, new_csi):
         n_sub, n_rx, n_tx = np.shape(new_csi)
-        # needs to be a column vector for next step to work properly
-        X = np.reshape(np.atleast_1d(new_csi[0, :, 0]), (n_rx, 1))
-        # compute autocorrelation
-        S = X @ X.conj().T
-        self.buffer.push(S)
+        if self.n_sub is None:
+            self.n_sub = n_sub // 4
+        if self.n_rx is None:
+            self.n_rx = n_rx
+        # treat each tx and sub as a separate reading
+        for sub in range(0, n_sub, 4):
+            for tx in range(n_tx):
+                X = np.reshape(np.atleast_1d(new_csi[sub, :, tx]), (n_rx, 1))
+                S = X @ X.conj().T
+                self.buffer.push(S)
 
     @override
     def evaluate(self):
@@ -253,29 +260,34 @@ class Music1D(Algorithm):
 
         # dp.listen(5678)
         # dp.wait_for_client()
+
+        # X = self.buffer.asarray()  # (n_sub, n_rx, buffer_size)
+        # # n_sub first principal components; one for each (n_rx, buffer_size) matrix
+        # u, _, _ = np.linalg.svd(X)  # (n_sub, n_rx, n_rx)
+        # csi = np.expand_dims(u[:, :, 0], axis=2)  # (n_sub, n_rx, 1)
+        # S = csi @ csi.conj().transpose(0, 2, 1)  # (n_sub, n_rx, n_rx)
         S = np.mean(self.buffer.asarray(), axis=-1)
-        # pick eigenvectors of noise space
-        e, v = np.linalg.eigh(S)
-        # E = v[:, e < 0.1 * np.max(e)]  # (n_rx, k)
-        E = v[:, np.argsort(e)[:-1]]
+        # pick k eigenvectors of noise space
+        _, v = np.linalg.eigh(S)
+        E = v[:, :-1]  # (n_rx, k)
+        # compute profile
+        # profile = np.zeros((self.n_sub, self.params.theta_count))
+        # for sub in range(self.n_sub):
+        #     for i in range(self.params.theta_count):
+        #         a = self.A[:, i]  # (n_rx)
+        #         P = E[sub] @ E[sub].conj().T  # (n_rx, n_rx)
+        #         profile[sub, i] = 1 / np.real(a.conj().T @ P @ a)
+        # # average across subcarriers
+        # profile = np.mean(profile, axis=0)
+        # return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
+
+        # S = np.mean(self.buffer.asarray(), axis=-1)
+        # # pick eigenvectors of noise space
+        # e, v = np.linalg.eigh(S)
+        # # E = v[:, e < 0.1 * np.max(e)]  # (n_rx, k)
+        # E = v[:, np.argsort(e)[:-1]]
         profile = np.zeros(self.params.theta_count)
         for i in range(self.params.theta_count):
             a = self.A[:, i]  # (n_rx)
             profile[i] = 1 / np.real(a.conj().T @ E @ E.conj().T @ a)
         return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
-        # n_sub, n_rx, n_tx = np.shape(self.last_csi)
-        # profiles = np.zeros((n_sub, n_tx, self.params.theta_count))
-        # for tx in range(n_tx):
-        #     for sub in range(n_sub):
-        #         # needs to be a column vector for next step to work properly
-        #         X = np.reshape(np.atleast_1d(self.last_csi[sub, :, tx]), (n_rx, 1))
-        #         # compute autocorrelation
-        #         S = X @ X.conj().T
-        #         e, v = np.linalg.eigh(S)
-        #         # pick eigenvectors of noise space
-        #         E = v[:, e < 0.1 * np.max(e)]  # (n_rx, k)
-        #         for i in range(self.params.theta_count):
-        #             a = self.A[:, i]  # (n_rx)
-        #             profiles[sub, tx, i] = 1 / np.abs(a.conj().T @ E @ E.conj().T @ a)
-        #         profile = profiles[0, 0, :]
-        #         return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
