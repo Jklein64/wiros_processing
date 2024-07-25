@@ -164,6 +164,8 @@ class Svd(Algorithm):
     def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
         self.buffer = CircularBuffer(maxlen=params.buffer_size)
+        self.A = self.aoa_steering_vector()  # (n_rx, theta_count)
+        self.B = self.tof_steering_vector()  # (n_sub, tau_count)
         self.n_sub = None
         self.n_rx = None
 
