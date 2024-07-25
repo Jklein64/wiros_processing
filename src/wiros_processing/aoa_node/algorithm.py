@@ -190,6 +190,42 @@ class Svd(Algorithm):
         return np.abs(self.A.conj().T @ csi.T @ self.B)
 
 
+class Wiros(Algorithm):
+    """
+    The RxSVD algorithm from WiROS.
+    """
+
+    name = "wiros"
+
+    def __init__(self, params: Params, channel, bandwidth):
+        super().__init__(params, channel, bandwidth)
+        self.buffer = CircularBuffer(maxlen=params.buffer_size)
+        self.A = self.aoa_steering_vector()  # (n_rx, theta_count)
+        self.B = self.tof_steering_vector()  # (n_sub, tau_count)
+        self.n_sub = None
+        self.n_rx = None
+
+    @override
+    def csi_callback(self, new_csi: np.ndarray):
+        n_sub, n_rx, n_tx = np.shape(new_csi)
+        if self.n_sub is None:
+            self.n_sub = n_sub
+        if self.n_rx is None:
+            self.n_rx = n_rx
+        # treat each tx as a separate reading
+        for tx in range(n_tx):
+            self.buffer.push(new_csi[:, :, tx])
+
+    @override
+    def evaluate(self) -> np.ndarray:
+        X = self.buffer.asarray()  # (n_sub, n_rx, buffer_size)
+        # n_sub first principal components; one for each (n_rx, buffer_size) matrix
+        u, _, _ = np.linalg.svd(X)  # (n_sub, n_rx, n_rx)
+        csi = u[:, :, 0]  # (n_sub, n_rx)
+        # compute (theta_count, tau_count) profile
+        return np.abs(self.A.conj().T @ csi.T @ self.B)
+
+
 class Music1D(Algorithm):
     """
     1D MUSIC algorithm.
