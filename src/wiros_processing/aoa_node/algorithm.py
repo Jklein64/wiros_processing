@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 from typing_extensions import override
 
-from ..constants import USABLE_SUBCARRIER_FREQUENCIES, C
+from ..constants import F0, USABLE_SUBCARRIER_FREQUENCIES, C
 
 if TYPE_CHECKING:
     # avoids circular import
@@ -69,12 +69,12 @@ class Algorithm:
             An ndarray with shape (n_rx, theta_count).
         """
         # calculate wave number
-        k = 2 * np.pi * np.mean(USABLE_SUBCARRIER_FREQUENCIES) / C
+        k = 2 * np.pi * F0 / C
         # expand dims so broadcasting works later
         dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
         # column j corresponds to steering vector for j'th theta sample
         A = np.repeat(np.expand_dims(self.theta_samples, axis=0), len(dx), axis=0)
-        A = np.exp(-1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
+        A = np.exp(1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
         # A now has shape (n_rx, theta_count)
         return A
 
@@ -187,7 +187,7 @@ class Svd(Algorithm):
         u, _, _ = np.linalg.svd(X)
         csi = np.reshape(u[:, 0], (self.n_sub, self.n_rx), order="F")
         # compute (theta_count, tau_count) profile
-        return np.abs(self.A.conj().T @ csi.conj().T @ self.B)
+        return np.abs(self.A.conj().T @ csi.T @ self.B)
 
 
 class Music1D(Algorithm):
@@ -195,15 +195,51 @@ class Music1D(Algorithm):
     1D MUSIC algorithm.
     """
 
-    name = "music1D"
+    name = "music1d"
 
     def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
+        self.buffer = CircularBuffer(maxlen=self.params.buffer_size)
+        self.A = self.aoa_steering_vector()
 
     @override
     def csi_callback(self, new_csi):
-        pass
+        n_sub, n_rx, n_tx = np.shape(new_csi)
+        # needs to be a column vector for next step to work properly
+        X = np.reshape(np.atleast_1d(new_csi[0, :, 0]), (n_rx, 1))
+        # compute autocorrelation
+        S = X @ X.conj().T
+        self.buffer.push(S)
 
     @override
     def evaluate(self):
-        pass
+        # import debugpy as dp
+
+        # dp.listen(5678)
+        # dp.wait_for_client()
+        S = np.mean(self.buffer.asarray(), axis=-1)
+        # pick eigenvectors of noise space
+        e, v = np.linalg.eigh(S)
+        # E = v[:, e < 0.1 * np.max(e)]  # (n_rx, k)
+        E = v[:, np.argsort(e)[:-1]]
+        profile = np.zeros(self.params.theta_count)
+        for i in range(self.params.theta_count):
+            a = self.A[:, i]  # (n_rx)
+            profile[i] = 1 / np.real(a.conj().T @ E @ E.conj().T @ a)
+        return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
+        # n_sub, n_rx, n_tx = np.shape(self.last_csi)
+        # profiles = np.zeros((n_sub, n_tx, self.params.theta_count))
+        # for tx in range(n_tx):
+        #     for sub in range(n_sub):
+        #         # needs to be a column vector for next step to work properly
+        #         X = np.reshape(np.atleast_1d(self.last_csi[sub, :, tx]), (n_rx, 1))
+        #         # compute autocorrelation
+        #         S = X @ X.conj().T
+        #         e, v = np.linalg.eigh(S)
+        #         # pick eigenvectors of noise space
+        #         E = v[:, e < 0.1 * np.max(e)]  # (n_rx, k)
+        #         for i in range(self.params.theta_count):
+        #             a = self.A[:, i]  # (n_rx)
+        #             profiles[sub, tx, i] = 1 / np.abs(a.conj().T @ E @ E.conj().T @ a)
+        #         profile = profiles[0, 0, :]
+        #         return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
