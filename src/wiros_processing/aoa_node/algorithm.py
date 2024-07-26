@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
+import rospy
 from typing_extensions import override
 
 from ..constants import F0, USABLE_SUBCARRIER_FREQUENCIES, C
@@ -228,66 +229,49 @@ class Wiros(Algorithm):
 
 class Music1D(Algorithm):
     """
-    1D MUSIC algorithm. Uses Wiros rx_svd-like approach to synthesize CSI
+    1D MUSIC algorithm. Only uses a single subcarrier.
     """
 
     name = "music1d"
 
     def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
-        self.buffer = CircularBuffer(maxlen=params.buffer_size)
+        # self.buffer = CircularBuffer(maxlen=params.buffer_size)
+        self.subcarrier_index = 20
+        self.subcarrier_frequency = USABLE_SUBCARRIER_FREQUENCIES[self.subcarrier_index]
         self.A = self.aoa_steering_vector()  # (n_rx, theta_count)
-        self.n_sub = None
-        self.n_rx = None
+        self.S = None
 
     @override
     def csi_callback(self, new_csi):
-        n_sub, n_rx, n_tx = np.shape(new_csi)
-        if self.n_sub is None:
-            self.n_sub = n_sub // 4
-        if self.n_rx is None:
-            self.n_rx = n_rx
-        # treat each tx and sub as a separate reading
-        for sub in range(0, n_sub, 4):
-            for tx in range(n_tx):
-                X = np.reshape(np.atleast_1d(new_csi[sub, :, tx]), (n_rx, 1))
-                S = X @ X.conj().T
-                self.buffer.push(S)
+        _, n_rx, _ = np.shape(new_csi)
+        X = np.reshape(np.atleast_1d(new_csi[self.subcarrier_index, :, 0]), (n_rx, 1))
+        S = X @ X.conj().T
+        self.S = S
 
     @override
     def evaluate(self):
-        # import debugpy as dp
-
-        # dp.listen(5678)
-        # dp.wait_for_client()
-
-        # X = self.buffer.asarray()  # (n_sub, n_rx, buffer_size)
-        # # n_sub first principal components; one for each (n_rx, buffer_size) matrix
-        # u, _, _ = np.linalg.svd(X)  # (n_sub, n_rx, n_rx)
-        # csi = np.expand_dims(u[:, :, 0], axis=2)  # (n_sub, n_rx, 1)
-        # S = csi @ csi.conj().transpose(0, 2, 1)  # (n_sub, n_rx, n_rx)
-        S = np.mean(self.buffer.asarray(), axis=-1)
+        S = self.S
         # pick k eigenvectors of noise space
-        _, v = np.linalg.eigh(S)
-        E = v[:, :-1]  # (n_rx, k)
+        e, v = np.linalg.eigh(S)
+        indices = e < 0.2 * np.max(e)
+        rospy.loginfo(f"estimating {4-np.count_nonzero(indices)} path(s)")
+        E = v[:, indices]  # (n_rx, k)
         # compute profile
-        # profile = np.zeros((self.n_sub, self.params.theta_count))
-        # for sub in range(self.n_sub):
-        #     for i in range(self.params.theta_count):
-        #         a = self.A[:, i]  # (n_rx)
-        #         P = E[sub] @ E[sub].conj().T  # (n_rx, n_rx)
-        #         profile[sub, i] = 1 / np.real(a.conj().T @ P @ a)
-        # # average across subcarriers
-        # profile = np.mean(profile, axis=0)
-        # return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
-
-        # S = np.mean(self.buffer.asarray(), axis=-1)
-        # # pick eigenvectors of noise space
-        # e, v = np.linalg.eigh(S)
-        # # E = v[:, e < 0.1 * np.max(e)]  # (n_rx, k)
-        # E = v[:, np.argsort(e)[:-1]]
         profile = np.zeros(self.params.theta_count)
         for i in range(self.params.theta_count):
             a = self.A[:, i]  # (n_rx)
             profile[i] = 1 / np.real(a.conj().T @ E @ E.conj().T @ a)
         return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
+
+    @override
+    def aoa_steering_vector(self):
+        # calculate wave number
+        k = 2 * np.pi * self.subcarrier_frequency / C
+        # expand dims so broadcasting works later
+        dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
+        # column j corresponds to steering vector for j'th theta sample
+        A = np.repeat(np.expand_dims(self.theta_samples, axis=0), len(dx), axis=0)
+        A = np.exp(1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
+        # A now has shape (n_rx, theta_count)
+        return A
