@@ -212,24 +212,18 @@ This method only requires using one subcarrier, not necessarily all of them.
 Uses the first principal component to merge CSI data from multiple frames. The SVD alleviates the noise present in methods that only use the current frame.
 
 1. Fill a length $k$ circular buffer $C \in \mathbb{C}^{NM \times k}$ with collected CSI matrices that have been turned into vectors by stacking their columns, treating data corresponding to each transmitter as if it was a completely new measurement.
-1. Compute the row-wise mean $\mu$ and the leading left singular vector $u \in \mathbb{C}^{NM}$ of $C$.
-1. Compute $c = \mu^*u/u^*u$ so $u$, a normalization factor rescaling $u$ to its original range.
-1. Unvectorize $cu$ into a CSI matrix $X \in \mathbb{C}^{N \times M}$.
+1. Compute the leading left singular vector $u \in \mathbb{C}^{NM}$ of $C$.
+1. Unvectorize $u$ into a CSI matrix $X \in \mathbb{C}^{N \times M}$.
 1. Compute the conventional beamforming profile $p = |A^*X^*B|$.
-
-The normalization is so that $X$ is in a similar range as the original CSI data, which would not be the case normally due to the effects of truncating the SVD.
 
 ### wiros
 
 A method developed as part of the [original WiROS source code](https://github.com/ucsdwcsng/wiros_processing_node/blob/af16caa8fb049d899288e459d727b13c143a391b/src/csi_utils/transform_utils.py#L175), originally named `rx_svd`. This method provides a significant speed boost over the **full_svd** method while providing results of comparable quality.
 
 1. Fill a length $k$ circular buffer $C \in \mathbb{C}^{N \times M \times k}$ with collected CSI data, treating data corresponding to each transmitter as if it was a completely new measurement.
-1. For each subcarrier $n$, compute the row-wise mean $\mu_n \in \mathbb{C}^M$ and the leading left singular vector $u_n \in \mathbb{C}^{M}$ of the $M \times k$ matrix corresponding to the data in $C$ for the $n$'th subcarrier.
-1. Compute $`c_n = \mu_n^*u_n/u_n^* u_n`$, a normalization factor rescaling $u_n$ to its original range.
-1. Collect $c_n u_n$ into a CSI matrix $X \in \mathbb{C}^{N \times M}$, where $[X]_{n,\cdot} = c_n u_n$.
+1. For each subcarrier $n$, compute the leading left singular vector $u_n \in \mathbb{C}^{M}$ of the $M \times k$ matrix corresponding to the data in $C$ for the $n$'th subcarrier.
+1. Collect $u_n$ into a CSI matrix $X \in \mathbb{C}^{N \times M}$, where $[X]_{n,\cdot} = u_n$.
 1. Compute the conventional beamforming profile $p = |A^*X^*B|$.
-
-The normalization is so that $X$ is in a similar range as the original CSI data, which would not be the case normally due to the effects of truncating the SVD.
 
 ### music
 
