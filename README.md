@@ -58,12 +58,14 @@ Compensation files follow the naming convention `{IP}-{chanspec}.npy`. NOTE: The
 
 CSI data has a lot of artifacts from processes and errors that might throw off later algorithms. Ma et. al. (2019) model these as
 
-$$`H_{i, j, k} =
+```math
+H_{i, j, k} =
 \underbrace{\left(\sum_n^N a_ne^{-j2\pi \frac{d_{i,j,n}}{c} f_k }\right)}_\text{Multi-Path Channel}\
 \underbrace{e^{-j2\pi\tau_i f_k}}_\text{CSD}\
 \underbrace{e^{-j2\pi \rho f_k}}_\text{STO}\
 \underbrace{e^{-j2\pi \eta(f_k'/f_k-1)f_k}}_\text{SFO}\
-\underbrace{q_{i,j}e^{-j2\pi \zeta_{i,j}}}_\text{Beamforming}`$$
+\underbrace{q_{i,j}e^{-j2\pi \zeta_{i,j}}}_\text{Beamforming}
+```
 
 Where $H_{i,j,k}$ is the CSI data for transmitter $i$, receiver $j$, and subcarrier $k$, $a_n$ is the attenuation along the $n$'th path, $d_{i, j, n}$ is the distance of the $n$'th path from transmitter $i$ to receiver $j$, $f_k$ is the carrier frequency, $\tau_i$ is a time offset due to Cyclic Shift Diversity (CSD), $\rho$ is the Sampling Time Offset (STO), $\eta$ is the sampling frequency offset, and $q_{i,j}$ and $\zeta_{i, j}$ are attenuation and phase shift due to beamforming.
 
