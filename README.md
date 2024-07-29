@@ -58,12 +58,12 @@ Compensation files follow the naming convention `{IP}-{chanspec}.npy`. NOTE: The
 
 CSI data has a lot of artifacts from processes and errors that might throw off later algorithms. Ma et. al. (2019) model these as
 
-$$H_{i, j, k} =
+$$`H_{i, j, k} =
 \underbrace{\left(\sum_n^N a_ne^{-j2\pi \frac{d_{i,j,n}}{c} f_k }\right)}_\text{Multi-Path Channel}\
 \underbrace{e^{-j2\pi\tau_i f_k}}_\text{CSD}\
 \underbrace{e^{-j2\pi \rho f_k}}_\text{STO}\
 \underbrace{e^{-j2\pi \eta(f_k'/f_k-1)f_k}}_\text{SFO}\
-\underbrace{q_{i,j}e^{-j2\pi \zeta_{i,j}}}_\text{Beamforming}$$
+\underbrace{q_{i,j}e^{-j2\pi \zeta_{i,j}}}_\text{Beamforming}`$$
 
 Where $H_{i,j,k}$ is the CSI data for transmitter $i$, receiver $j$, and subcarrier $k$, $a_n$ is the attenuation along the $n$'th path, $d_{i, j, n}$ is the distance of the $n$'th path from transmitter $i$ to receiver $j$, $f_k$ is the carrier frequency, $\tau_i$ is a time offset due to Cyclic Shift Diversity (CSD), $\rho$ is the Sampling Time Offset (STO), $\eta$ is the sampling frequency offset, and $q_{i,j}$ and $\zeta_{i, j}$ are attenuation and phase shift due to beamforming.
 
@@ -81,7 +81,7 @@ Because each antenna is in a different location and the speed of light is finite
 
 $$a_m(\theta) = \exp\left(-j2\pi \cdot (v^\top r_m) \cdot f_c/c\right)$$
 
-where $v =\begin{bmatrix}\cos\theta & \sin\theta\end{bmatrix}^\top$ is the unit vector in the direction of $\theta$ pointing away from the receiver. We can create a "steering vector" $a(\theta)\in\mathbb{C}^M$ using all $M$ of these phase delays, where $[a(\theta)]_m = a_m(\theta)$. If we uniformly sample $\theta_\text{count}$ values of $\theta$, then we can collect all of the steering vectors into an $M\times \theta_\text{count}$ matrix $A$.
+where $`v =\begin{bmatrix}\cos\theta & \sin\theta\end{bmatrix}^\top`$ is the unit vector in the direction of $\theta$ pointing away from the receiver. We can create a "steering vector" $a(\theta)\in\mathbb{C}^M$ using all $M$ of these phase delays, where $`[a(\theta)]_m = a_m(\theta)`$. If we uniformly sample $`\theta_\text{count}`$ values of $\theta$, then we can collect all of the steering vectors into an $M\times \theta_\text{count}$ matrix $A$.
 
 In addition to AoA, some methods leverage per-subcarrier phase delays due to differences in time of flight (ToF). Let $\tau \in [\tau_\text{min}, \tau_\text{max}]$ be the ToF of an incoming wavefront. Differences in subcarrier frequencies cause a noticeable phase delay $b_n(\tau)$ for the $n$'th subcarrier:
 
@@ -91,7 +91,7 @@ b_n(\tau) = \exp\left(
 \right)
 $$
 
-We can create another steering vector $b(\tau) \in \mathbb{C}^N$ using all $N$ of these phase delays, where $[b(\tau)]_n=b_n(\tau)$. If we uniformly sample $\tau_\text{count}$ values of $\tau$, then we can collect all of the steering vectors into a $N \times \tau_\text{count}$ matrix $B$.
+We can create another steering vector $b(\tau) \in \mathbb{C}^N$ using all $N$ of these phase delays, where $`[b(\tau)]_n=b_n(\tau)`$. If we uniformly sample $\tau_\text{count}$ values of $\tau$, then we can collect all of the steering vectors into a $N \times \tau_\text{count}$ matrix $B$.
 
 Each method uses the $A$ matrix (and maybe also the $B$ matrix) to compute a matrix we call a "profile" $p_{i,j} \in \mathbb{R}^{\theta_\text{count} \times \tau_\text{count}}$ that describes the intensity given $\theta=\theta_i$ and $\tau=\tau_j$, calculated using csi data $H \in \mathbb{C}^{N \times M}$. Higher intensities correspond to increased confidence that those are the true values of $\theta$ and $\tau$, but the values themselves are (1) arbitrary and (2) not necessarily comparable across algorithms.
 
@@ -159,7 +159,7 @@ Capon beamforming, also known as the Minimum Variance Distortionless Response (M
 
 1. Fill a length $k$ circular buffer $C \in \mathbb{C}^{N \times M \times k}$ with collected CSI data, treating data corresponding to each transmitter as if it was a completely new measurement.
 1. For each subcarrier $n$, let $C_n \in \mathbb{C}^{M\times k}$ be a matrix whose columns are CSI data for each receiver, and let $\mu_n \in \mathbb{C}^M$ be the average of each row of $C_n$. Compute the covariance matrix $R_n = \frac{1}{k-1}(C_n - \mu_n)(C_n - \mu_n)^*$ (broadcasting the subtraction).
-1. Compute the per-subcarrier profile $`p_{i,n} = \frac{1}{\mathbb{R}e \left\{a(\theta_i)^* R^{-1} a(\theta_i)\right\}}`$.
+1. Compute the per-subcarrier profile $`p_{i,n} = \frac{1}{\Re \left\{a(\theta_i)^* R^{-1} a(\theta_i)\right\}}`$.
 1. Average across subcarriers to compute $p_i = \frac{1}{n}\sum_n p_{i,n}$.
 
 This method only requires using one subcarrier, not necessarily all of them.
