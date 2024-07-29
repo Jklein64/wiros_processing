@@ -16,7 +16,7 @@ class AoaNode:
         bearing_pub: ROS publisher for the bearing topic
         profile1d_pub: ROS publisher for the profile1d topic
         profile2d_pub: ROS publisher for the profile2d topic
-        last_msg: Reference to the last Wifi message for timer callback
+        last_msg: Reference to the last Csi message for timer callback
         last_msg: Reference to the last (channel, bw) for timer callback
     """
 
@@ -32,21 +32,23 @@ class AoaNode:
         self.last_ch_bw = None
 
     def csi_callback(self, msg):
-        """Reads incoming Wifi messages and passes arrays to the algorithm.
+        """Reads incoming Csi messages and passes arrays to the algorithm.
 
         Args:
-            msg: the incoming Wifi message with CSI data and shape.
+            msg: the incoming Csi message with CSI data and shape.
         """
         self.last_msg = msg
         n_sub = msg.n_sub
-        n_rows = msg.n_rows
-        n_cols = msg.n_cols
+        n_rx = msg.n_rx
+        n_tx = msg.n_tx
         # extract csi matrix
-        csi_real = np.reshape(msg.csi_real, (n_sub, n_rows, n_cols), order="F")
-        csi_imag = np.reshape(msg.csi_imag, (n_sub, n_rows, n_cols), order="F")
+        csi_real = np.reshape(msg.csi_real, (n_sub, n_rx, n_tx), order="F")
+        csi_imag = np.reshape(msg.csi_imag, (n_sub, n_rx, n_tx), order="F")
         csi = csi_real + 1.0j * csi_imag.astype(np.complex128)
+
         # instantiate algorithm for channel and bandwidth
-        if (ch_bw := (msg.chan, msg.bw * 1e6)) not in self.algo_instances:
+        ch_bw = (msg.channel, msg.bandwidth * 1e6)
+        if ch_bw not in self.algo_instances:
             self.algo_instances[ch_bw] = Algorithm.from_params(self.params, *ch_bw)
         # give algorithm instance the csi data
         self.algo_instances[ch_bw].csi_callback(csi)
@@ -90,22 +92,6 @@ class AoaNode:
                 intensity=np.ravel(profile),
             )
             self.profile2d_pub.publish(profile2d_msg)
-
-        # publish bearing
-        profile_shape = (self.params.theta_count, self.params.tau_count)
-        # pylint: disable-next=unbalanced-tuple-unpacking
-        theta_index, _ = np.unravel_index(np.argmax(profile), profile_shape)
-        bearing_msg = Bearing(
-            header=rospy.Header(stamp=rospy.Time.now()),
-            ap_id=self.last_msg.ap_id,
-            txmac=self.last_msg.txmac,
-            n_rx=self.last_msg.n_rows,
-            n_tx=self.last_msg.n_cols,
-            seq=self.last_msg.seq_num,
-            rssi=self.last_msg.rssi,
-            aoa=self.algo_instances[self.last_ch_bw].theta_samples[theta_index],
-        )
-        self.bearing_pub.publish(bearing_msg)
 
 
 class Params:

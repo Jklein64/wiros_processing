@@ -1,6 +1,6 @@
 import numpy as np
 import rospy
-from rf_msgs.msg import Wifi
+from rf_msgs.msg import Csi, Rssi, Wifi
 from rospy import Publisher
 from std_msgs.msg import Header
 
@@ -17,7 +17,8 @@ class CorrectionNode:
 
     def __init__(self):
         self.params = Params()
-        self.csi_pub = Publisher("csi", Wifi, queue_size=1000)
+        self.csi_pub = Publisher("csi", Csi, queue_size=1000)
+        self.rssi_pub = Publisher("rssi", Rssi, queue_size=1000)
 
         try:
             self.compensation_array = np.load(self.params.compensation_path)
@@ -69,12 +70,17 @@ class CorrectionNode:
             csi *= self.compensation_array
 
         # republish as clean CSI
-        msg.header = Header()
-        msg.header.stamp = rospy.Time.now()
-        msg.n_sub, msg.n_rows, msg.n_cols = np.shape(csi)
-        msg.csi_real = np.reshape(np.real(csi), (-1), order="F")
-        msg.csi_imag = np.reshape(np.imag(csi), (-1), order="F")
-        self.csi_pub.publish(msg)
+        csi_msg = Csi(header=Header(stamp=rospy.Time.now()))
+        csi_msg.bandwidth = msg.bw
+        csi_msg.n_sub, csi_msg.n_rx, csi_msg.n_tx = np.shape(csi)
+        csi_msg.csi_real = np.reshape(np.real(csi), (-1), order="F")
+        csi_msg.csi_imag = np.reshape(np.imag(csi), (-1), order="F")
+        self.csi_pub.publish(csi_msg)
+
+        # also publish RSSI
+        rssi_msg = Rssi(header=Header(stamp=rospy.Time.now()))
+        rssi_msg.rssi = msg.rssi
+        self.rssi_pub.publish(rssi_msg)
 
 
 class Params:

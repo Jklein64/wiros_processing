@@ -1,7 +1,7 @@
 #! /usr/env/bin python3
 
 import rospy
-from rf_msgs.msg import Wifi
+from rf_msgs.msg import Csi
 from wiros_processing.aoa_node import AoaNode
 
 if __name__ == "__main__":
@@ -11,7 +11,7 @@ if __name__ == "__main__":
         aoa_node = AoaNode()
         period = rospy.Duration(1 / aoa_node.params.rate)
         timer = rospy.Timer(period, aoa_node.timer_callback)
-        rospy.Subscriber("csi", Wifi, aoa_node.csi_callback, queue_size=1)
+        rospy.Subscriber("csi", Csi, aoa_node.csi_callback, queue_size=1)
         rospy.spin()
         timer.shutdown()
 

@@ -236,26 +236,26 @@ class Music1D(Algorithm):
 
     def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
-        # self.buffer = CircularBuffer(maxlen=params.buffer_size)
+        self.buffer = CircularBuffer(maxlen=params.buffer_size)
         self.subcarrier_index = 20
         self.subcarrier_frequency = USABLE_SUBCARRIER_FREQUENCIES[self.subcarrier_index]
         self.A = self.aoa_steering_vector()  # (n_rx, theta_count)
-        self.S = None
 
     @override
     def csi_callback(self, new_csi):
-        _, n_rx, _ = np.shape(new_csi)
-        X = np.reshape(np.atleast_1d(new_csi[self.subcarrier_index, :, 0]), (n_rx, 1))
-        S = X @ X.conj().T
-        self.S = S
+        _, n_rx, n_tx = np.shape(new_csi)
+        for tx in range(n_tx):
+            self.buffer.push(new_csi[:, :, tx])
+        X = self.buffer.asarray()[self.subcarrier_index, :, :]
 
     @override
     def evaluate(self):
-        S = self.S
+        C = self.buffer.asarray()
+        S = np.cov(C[self.subcarrier_index, :, :])
+        # S = self.S
         # pick k eigenvectors of noise space
         e, v = np.linalg.eigh(S)
-        indices = e < 0.2 * np.max(e)
-        rospy.loginfo(f"estimating {4-np.count_nonzero(indices)} path(s)")
+        indices = e < 0.1 * np.max(e)
         E = v[:, indices]  # (n_rx, k)
         # compute profile
         profile = np.zeros(self.params.theta_count)
@@ -267,7 +267,7 @@ class Music1D(Algorithm):
     @override
     def aoa_steering_vector(self):
         # calculate wave number
-        k = 2 * np.pi * self.subcarrier_frequency / C
+        k = 2 * np.pi * F0 / C
         # expand dims so broadcasting works later
         dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
         # column j corresponds to steering vector for j'th theta sample
