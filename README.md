@@ -135,7 +135,7 @@ The algorithm proposed by [Ma et. al. (2019)](https://dl.acm.org/doi/10.1145/331
 1 & -2\pi f_\delta k & -2\pi f_\delta k & 0 & 0 & \cdots & 0 \\
 1 & -2\pi f_\delta k & 0 & -2\pi f_\delta k & 0 & \cdots & 0 \\
 \vdots & \vdots & \vdots & \vdots & \vdots & \ddots & \vdots \\
-1 & -2\pi f_\delta k & 0 & 0 & 0 & \cdots & -2\pi f_\delta k \\
+1 & -2\pi f_\delta k & 0 & 0 & 0 & \cdots & -2\pi f_\delta k
 \end{bmatrix}}_{A_k}
 \begin{bmatrix}
 \beta \\ \omega \\ \tau_0 \\ \tau_1 \\ \vdots \\ \tau_{T-1}
