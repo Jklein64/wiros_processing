@@ -58,7 +58,9 @@ Compensation files follow the naming convention `{IP}-{chanspec}.npy`. NOTE: The
 
 CSI data has a lot of phase-related artifacts from processes and errors that might throw off direction-finding algorithms. [Ma et. al. (2019)](https://dl.acm.org/doi/10.1145/3310194) model the observed (unwrapped) CSI phase $\Theta_{i,j,k}$ for a given CSI frame as
 
-$$`\Theta_{i,j,k}=\Phi_{i,j,k} + 2\pi f_\delta k(\tau_i + \rho + \eta(f_k'/f_k - 1)) + 2\pi \zeta_{i,j}`$$
+```math
+\Theta_{i,j,k}=\Phi_{i,j,k} + 2\pi f_\delta k(\tau_i + \rho + \eta(f_k'/f_k - 1)) + 2\pi \zeta_{i,j}
+```
 
 Where $\Phi_{i,j,k}$ is the (unwrapped) CSI phase caused by multipath propagation for transmitter $i$, receiver $j$, and subcarrier $k$ (zero-indexed), $f_\delta = 312.5$ KHz is the frequency spacing between subcarriers, $\tau_i$ is a time offset due to Cyclic Shift Diversity (CSD), $\rho$ is the Sampling Time Offset (STO), $\eta$ is the sampling frequency offset, $f_k$ is the subcarrier frequency, and $\zeta_{i, j}$ is phase shift due to beamforming.
 
@@ -70,7 +72,7 @@ This is the ToF sanitization algorithm (algorithm 1) from [Kotaru et. al. (2015)
 
 The SpotFi correction method simplifies the model to $\Theta_{i,j,k}=-2\pi \cdot f_\delta k \cdot \tau_i + \beta$, and then performs linear regression on $\Theta_{i,j,k}$ to find the values of $\tau_i$ and $\beta$. For a given transmitter $i$ and receiver $j$, we have the matrix system
 
-$$
+```math
 \underbrace{
 \begin{bmatrix}
 \Theta_{i,j,0} \\
@@ -89,11 +91,11 @@ $$
 \begin{bmatrix}
 \beta \\ \tau_i
 \end{bmatrix}
-$$
+```
 
 where $K$ is the number of subcarriers. Stacking these into a block-matrix system,
 
-$$
+```math
 \underbrace{
 \begin{bmatrix}
 b_{i,0} \\ b_{i,1} \\ \vdots \\ b_{i,R-1}
@@ -107,7 +109,7 @@ A \\ A \\ \vdots \\ A
 \begin{bmatrix}
 \beta \\ \tau_i
 \end{bmatrix}}_{x}
-$$
+```
 
 Then $\beta$ and $\tau_i$ can be recovered by finding the least-squares solution to $\hat Ax = \hat b_i$. This is repeated for each transmitter $i$. The corrected phase is then $\hat\Theta_{i,j,k} = \Theta_{i,j,k} + 2\pi \cdot f_\delta k \cdot \tau_i$. Since $\beta$ ends up capturing the phase offsets due to multipath (and also some beamforming information), it's important to not add $\beta$ when correcting the phase.
 
@@ -119,7 +121,7 @@ Identical to the SpotFi compensation algorithm in concept, though the linear reg
 
 The algorithm proposed by [Ma et. al. (2019)](https://dl.acm.org/doi/10.1145/3310194), which accounts for CSD $\tau_i$ from each transmit antenna as part of the block matrix system instead of requiring $T$ different solves. This method models the phase shift as $\Theta_{i,j,k}=-2\pi \cdot f_\delta k \cdot (\tau_i + \omega) + \beta$. For a given receiver $j$ and subcarrier $k$, we have the matrix system
 
-$$
+```math
 \underbrace{
 \begin{bmatrix}
 \Theta_{0,j,k} \\
@@ -138,11 +140,11 @@ $$
 \begin{bmatrix}
 \beta \\ \omega \\ \tau_0 \\ \tau_1 \\ \vdots \\ \tau_{T-1}
 \end{bmatrix}
-$$
+```
 
 Stacking these into a block matrix system,
 
-$$
+```math
 \underbrace{
 \begin{bmatrix}
 b_{0,0} \\ b_{0,1} \\ \vdots \\ b_{0,K-1} \\ \vdots \\ b_{R-1, K-1}
@@ -156,7 +158,7 @@ A_0 \\ A_1 \\ \vdots \\ A_{K-1} \\ \vdots \\ A_{K-1}
 \begin{bmatrix}
 \beta \\ \omega \\ \tau_0 \\ \tau_1 \\ \vdots \\ \tau_{T-1}
 \end{bmatrix}}_{x}
-$$
+```
 
 Then we can recover the parameters by solving the least-squares system $\hat A x = \hat b$. The corrected phase is $\hat\Theta_{i,j,k}=\Theta_{i,j,k}+2\pi \cdot f_\delta k(\tau_i + \omega)$. As with the SpotFi method, $\beta$ is not added when correcting the phase because it  ends up capturing the phase offsets due to multipath (and also some beamforming information).
 
