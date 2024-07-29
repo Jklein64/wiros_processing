@@ -16,7 +16,7 @@ These nodes support arbitrary (planar) antenna array configurations allowing for
 
 ### AoA Node
 
-- `algo` : The algorithm to use. See the [algorithms section](#algorithms).
+- `algo` : The algorithm to use. See the [direction-finding algorithms section](#direction-finding-algorithms).
 
 - `theta_min`, `theta_max`, `theta_count` : the AoA values to search over.
 - `tau_min`, `tau_max`, `tau_count` : the ToF values to search over.
@@ -26,6 +26,8 @@ These nodes support arbitrary (planar) antenna array configurations allowing for
 - `rate` : Target publishing rate. The processing is controlled by a timer running at this rate, and is separate from the rate at which data is published to `/csi`.
 
 ### Correction Node
+
+- `algo` : The algorithm to use. See the [correction algorithms](#correction-algorithms) section.
 
 - `rssi_threshold` : Only keep CSI for frames where RSSI is above this limit. Filters out poor-quality measurements.
 
