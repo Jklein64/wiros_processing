@@ -1,6 +1,6 @@
 import numpy as np
 
-C = 2.99792458e8
+C_SPEED = 2.99792458e8
 
 # everything here is hardcoded for channel 155, 5 GHz with 80 MHz bandwidth
 

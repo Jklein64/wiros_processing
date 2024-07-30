@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 from typing_extensions import override
 
-from ..constants import F0, USABLE_SUBCARRIER_FREQUENCIES, C
+from ..constants import C_SPEED, F0, USABLE_SUBCARRIER_FREQUENCIES
 
 if TYPE_CHECKING:
     # avoids circular import
@@ -70,7 +70,7 @@ class Algorithm:
             An ndarray with shape (n_rx, theta_count).
         """
         # calculate wave number
-        k = 2 * np.pi * F0 / C
+        k = 2 * np.pi * F0 / C_SPEED
         # expand dims so broadcasting works later
         dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
         # column j corresponds to steering vector for j'th theta sample
@@ -86,7 +86,7 @@ class Algorithm:
         Returns:
             An ndarray with shape (n_sub, tau_count).
         """
-        omega = 2 * np.pi * USABLE_SUBCARRIER_FREQUENCIES / C
+        omega = 2 * np.pi * USABLE_SUBCARRIER_FREQUENCIES / C_SPEED
         # column j corresponds to steering vector for the j'th tau sample
         B = np.exp(-1.0j * np.outer(omega, self.tau_samples))
         # B now has shape (n_sub, tau_count)
@@ -113,6 +113,11 @@ class CircularBuffer:
     The buffer is immediately initialized to the maximum size and filled with zeros.
     This might give unexpected behavior when performing operations like an average
     over the buffer contents before every element has been filled with data.
+
+    Attributes:
+        maxlen: the maximum number of items in the buffer.
+        buffer: the raw data array backing the CircularBuffer.
+        index: number such that buffer[..., index] is the most recent data point.
     """
 
     def __init__(self, maxlen: int):
@@ -158,7 +163,7 @@ class Svd(Algorithm):
     2d DFT algorithm using SVD to merge data across frames and transmitters.
     """
 
-    name = "full_svd"
+    name = "svd"
 
     def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
@@ -183,12 +188,12 @@ class Svd(Algorithm):
 
     @override
     def evaluate(self):
-        X = self.buffer.asarray()  # (n_sub * n_rx, n_data)
+        C = self.buffer.asarray()  # (n_sub * n_rx, n_data)
         # use first principal component of flattened csi measurements
-        u, _, _ = np.linalg.svd(X)
-        csi = np.reshape(u[:, 0], (self.n_sub, self.n_rx), order="F")
+        u, _, _ = np.linalg.svd(C)
+        X = np.reshape(u[:, 0], (self.n_sub, self.n_rx), order="F")
         # compute (theta_count, tau_count) profile
-        return np.abs(self.A.conj().T @ csi.conj().T @ self.B)
+        return np.abs(self.A.conj().T @ X.conj().T @ self.B)
 
 
 class Wiros(Algorithm):
@@ -219,20 +224,18 @@ class Wiros(Algorithm):
 
     @override
     def evaluate(self) -> np.ndarray:
-        X = self.buffer.asarray()  # (n_sub, n_rx, buffer_size)
+        C = self.buffer.asarray()  # (n_sub, n_rx, buffer_size)
         # n_sub first principal components; one for each (n_rx, buffer_size) matrix
-        u, _, _ = np.linalg.svd(X)  # (n_sub, n_rx, n_rx)
-        csi = u[:, :, 0]  # (n_sub, n_rx)
+        u, _, _ = np.linalg.svd(C)  # (n_sub, n_rx, n_rx)
+        X = u[:, :, 0]  # (n_sub, n_rx)
         # compute (theta_count, tau_count) profile
-        return np.abs(self.A.conj().T @ csi.conj().T @ self.B)
+        return np.abs(self.A.conj().T @ X.conj().T @ self.B)
 
 
-class Music1D(Algorithm):
-    """
-    1D MUSIC algorithm. Only uses a single subcarrier.
-    """
+class Music(Algorithm):
+    """1D MUSIC algorithm. Only uses a single subcarrier."""
 
-    name = "music1d"
+    name = "music"
 
     def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
@@ -243,18 +246,16 @@ class Music1D(Algorithm):
 
     @override
     def csi_callback(self, new_csi):
-        _, n_rx, n_tx = np.shape(new_csi)
+        _, _, n_tx = np.shape(new_csi)
         for tx in range(n_tx):
             self.buffer.push(new_csi[:, :, tx])
-        X = self.buffer.asarray()[self.subcarrier_index, :, :]
 
     @override
     def evaluate(self):
         C = self.buffer.asarray()
-        S = np.cov(C[self.subcarrier_index, :, :])
-        # S = self.S
+        R = np.cov(C[self.subcarrier_index, :, :])
         # pick k eigenvectors of noise space
-        e, v = np.linalg.eigh(S)
+        e, v = np.linalg.eigh(R)
         indices = e < 0.1 * np.max(e)
         E = v[:, indices]  # (n_rx, k)
         # compute profile
@@ -267,7 +268,7 @@ class Music1D(Algorithm):
     @override
     def aoa_steering_vector(self):
         # calculate wave number
-        k = 2 * np.pi * F0 / C
+        k = 2 * np.pi * F0 / C_SPEED
         # expand dims so broadcasting works later
         dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
         # column j corresponds to steering vector for j'th theta sample
@@ -275,3 +276,31 @@ class Music1D(Algorithm):
         A = np.exp(1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
         # A now has shape (n_rx, theta_count)
         return A
+
+
+class Conventional(Algorithm):
+    """Conventional beamforming, also known as the FFT method."""
+
+    name = "conventional"
+
+    @override
+    def csi_callback(self, new_csi):
+        raise NotImplementedError()
+
+    @override
+    def evaluate(self):
+        raise NotImplementedError()
+
+
+class Capon(Algorithm):
+    """Capon beamforming, also known as Minimum Variance Distortionless Response."""
+
+    name = "capon"
+
+    @override
+    def csi_callback(self, new_csi):
+        raise NotImplementedError()
+
+    @override
+    def evaluate(self):
+        raise NotImplementedError()
