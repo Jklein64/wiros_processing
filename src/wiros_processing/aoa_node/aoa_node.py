@@ -123,5 +123,5 @@ class Params:
 
         # ros
         self.rate = rospy.get_param("~rate", 20)
-        self.algo = rospy.get_param("~algo", "full_svd")
+        self.algo = rospy.get_param("~algo", "svd")
         self.profiles = rospy.get_param("~profiles", 3)

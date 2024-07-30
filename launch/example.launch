@@ -2,18 +2,16 @@
 
 <!-- example launchfile for wiros_processing package -->
 
-<launch xmlns:xs="http://www.w3.org/2001/XMLSchema"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="https://gist.githubusercontent.com/nalt/dfa2abc9d2e3ae4feb82ca5608090387/raw/0fc62ead55d1264bc630fa1d1ad85b09bd94ba10/roslaunch.xsd"
->
+<launch>
     <node pkg="wiros_processing" type="correction_node" name="correction_node">
         <param name="compensation_path" type="string"
             value="/media/share/ros/bag/192.168.43.1-155.npy" />
         <param name="rssi_threshold" type="int" value="-100" />
+        <param name="algo" type="string" value="ma" />
     </node>
 
     <node pkg="wiros_processing" type="aoa_node" name="aoa_node">
-        <param name="algo" type="string" value="full_svd" />
+        <param name="algo" type="string" value="svd" />
         <param name="buffer_size" type="int" value="20" />
         <param name="rate" type="double" value="20" />
         <!-- 0 => no profiles, 1 => 1D profile, 2 => 2D profile, 3 => both 1D and 2D -->
@@ -27,6 +25,6 @@
         <param name="tau_count" type="int" value="100" />
 
         <!-- list of 2-element lists corresponding to the X and Y coordinates of each receiving antenna -->
-        <rosparam param="rx_position"> [[0.0, 0.0], [0.0, -0.026], [0.0, -0.052], [0.0, -0.078]] </rosparam>
+        <rosparam param="rx_position"> [[0.0, 0.0], [0.0, -0.06], [0.0, -0.03], [0.0, -0.09]] </rosparam>
     </node>
 </launch>
