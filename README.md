@@ -117,7 +117,7 @@ Then $\beta$ and $\tau_i$ can be recovered by finding the least-squares solution
 
 ### wiros
 
-Identical to the SpotFi compensation algorithm in concept, though the linear regression is performed with [`np.polyfit`](https://numpy.org/doc/stable/reference/generated/numpy.polyfit.html), which uses the singular value decomposition instead of using the closed form of the least squares solution. The results have a different scale from the SpotFi method in our experimentation, but that could be due to a bug in our re-implementation.
+Identical to the SpotFi compensation algorithm in concept, though the linear regression is performed with [`np.polyfit`](https://numpy.org/doc/stable/reference/generated/numpy.polyfit.html), which uses the singular value decomposition instead of using the closed form of the least squares solution. The results have a different scale from the SpotFi method in our experimentation due to the fact that this method uses the absolute subcarrier frequencies instead of the differences between them.
 
 ### ma 
 

@@ -4,7 +4,8 @@ from rf_msgs.msg import Csi, Rssi, Wifi
 from rospy import Publisher
 from std_msgs.msg import Header
 
-from ..constants import F_DELTA, USABLE_SUBCARRIER_INDICES
+from ..constants import USABLE_SUBCARRIER_INDICES
+from .algorithm import Algorithm
 
 
 class CorrectionNode:
@@ -17,6 +18,7 @@ class CorrectionNode:
 
     def __init__(self):
         self.params = Params()
+        self.algo = Algorithm.from_name(self.params.algo)
         self.csi_pub = Publisher("csi", Csi, queue_size=1000)
         self.rssi_pub = Publisher("rssi", Rssi, queue_size=1000)
 
@@ -56,18 +58,12 @@ class CorrectionNode:
         if bandwidth == 80e6:
             csi[117] = csi[118]
 
-        # ToF correction
-        freqs = (USABLE_SUBCARRIER_INDICES - 128) * F_DELTA
-        for tx in range(csi.shape[2]):
-            hpk = csi[:, :, tx]
-            line = np.polyfit(freqs, np.unwrap(np.angle(hpk), axis=0), 1)
-            tch = np.min(line[0, :])
-            subc_angle = np.exp(-1.0j * tch * freqs)
-            csi[:, :, tx] = hpk * subc_angle[:, np.newaxis]
-
         # compensation
         if self.compensation_array is not None:
             csi *= self.compensation_array
+
+        # ToF correction
+        self.algo.correct(csi)
 
         # republish as clean CSI
         csi_msg = Csi(header=Header(stamp=rospy.Time.now()))
@@ -92,5 +88,6 @@ class Params:
     """
 
     def __init__(self):
+        self.algo = rospy.get_param("~algo", "ma")
         self.compensation_path = rospy.get_param("~compensation_path")
         self.rssi_threshold = rospy.get_param("~rssi_threshold", None)
