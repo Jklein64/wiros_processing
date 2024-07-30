@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
-import rospy
 from typing_extensions import override
 
 from ..constants import F0, USABLE_SUBCARRIER_FREQUENCIES, C
@@ -18,7 +17,8 @@ class Algorithm:
 
     Note that many aspects of the algorithm depend on the channel and bandwidth of the
     provided CSI matrices. Create a new algorithm instance for each channel/bandwidth
-    combination.
+    combination. See the README for algorithm explanations. Variables are named to
+    resemble the math.
 
     Attributes:
         name: the name of the algorithm. Used to match string to class.
@@ -75,7 +75,7 @@ class Algorithm:
         dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
         # column j corresponds to steering vector for j'th theta sample
         A = np.repeat(np.expand_dims(self.theta_samples, axis=0), len(dx), axis=0)
-        A = np.exp(1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
+        A = np.exp(-1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
         # A now has shape (n_rx, theta_count)
         return A
 
@@ -188,7 +188,7 @@ class Svd(Algorithm):
         u, _, _ = np.linalg.svd(X)
         csi = np.reshape(u[:, 0], (self.n_sub, self.n_rx), order="F")
         # compute (theta_count, tau_count) profile
-        return np.abs(self.A.conj().T @ csi.T @ self.B)
+        return np.abs(self.A.conj().T @ csi.conj().T @ self.B)
 
 
 class Wiros(Algorithm):
@@ -224,7 +224,7 @@ class Wiros(Algorithm):
         u, _, _ = np.linalg.svd(X)  # (n_sub, n_rx, n_rx)
         csi = u[:, :, 0]  # (n_sub, n_rx)
         # compute (theta_count, tau_count) profile
-        return np.abs(self.A.conj().T @ csi.T @ self.B)
+        return np.abs(self.A.conj().T @ csi.conj().T @ self.B)
 
 
 class Music1D(Algorithm):
