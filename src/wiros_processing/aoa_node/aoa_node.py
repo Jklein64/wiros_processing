@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import rospy
-from rf_msgs.msg import Bearing, Profile1d, Profile2d
+from rf_msgs.msg import Profile1d, Profile2d
 
 from .algorithm import Algorithm
 
@@ -13,21 +13,23 @@ class AoaNode:
     Attributes:
         params: Parameters for the node.
         algo_instances: A dictionary mapping (channel, bw) to algo instances
-        bearing_pub: ROS publisher for the bearing topic
         profile1d_pub: ROS publisher for the profile1d topic
         profile2d_pub: ROS publisher for the profile2d topic
         last_msg: Reference to the last Csi message for timer callback
-        last_msg: Reference to the last (channel, bw) for timer callback
+        last_ch_bw: Reference to the last (channel, bw) for timer callback
     """
 
     def __init__(self):
         self.params = Params()
         self.algo_instances: dict[tuple[int, int], Algorithm] = {}
-        self.bearing_pub = rospy.Publisher("bearing", Bearing, queue_size=1000)
         if self.params.profiles in {1, 3}:
-            self.profile1d_pub = rospy.Publisher("profile1d", Profile1d, queue_size=10)
+            self.profile1d_pub = rospy.Publisher(
+                "profile1d_raw", Profile1d, queue_size=10
+            )
         if self.params.profiles in {2, 3}:
-            self.profile2d_pub = rospy.Publisher("profile2d", Profile2d, queue_size=10)
+            self.profile2d_pub = rospy.Publisher(
+                "profile2d_raw", Profile2d, queue_size=10
+            )
         self.last_msg = None
         self.last_ch_bw = None
 
