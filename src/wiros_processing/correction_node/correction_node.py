@@ -83,6 +83,7 @@ class Params:
     """Parameters for the CorrectionNode.
 
     Attributes:
+        algo: The correction algorithm to use.
         compensation_path: File path to a static compensation file.
         rssi_threshold: Messages with RSSI below this will be dropped.
     """
