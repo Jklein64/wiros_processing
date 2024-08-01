@@ -75,7 +75,7 @@ class Algorithm:
         dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
         # column j corresponds to steering vector for j'th theta sample
         A = np.repeat(np.expand_dims(self.theta_samples, axis=0), len(dx), axis=0)
-        A = np.exp(-1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
+        A = np.exp(1j * k * (dx * np.cos(A) + dy * np.sin(A)))
         # A now has shape (n_rx, theta_count)
         return A
 
@@ -229,7 +229,7 @@ class Wiros(Algorithm):
         u, _, _ = np.linalg.svd(C)  # (n_sub, n_rx, n_rx)
         X = u[:, :, 0]  # (n_sub, n_rx)
         # compute (theta_count, tau_count) profile
-        return np.abs(self.A.conj().T @ X.conj().T @ self.B)
+        return np.abs(self.A.conj().T @ X.T @ self.B)
 
 
 class Music(Algorithm):
@@ -240,42 +240,34 @@ class Music(Algorithm):
     def __init__(self, params: Params, channel, bandwidth):
         super().__init__(params, channel, bandwidth)
         self.buffer = CircularBuffer(maxlen=params.buffer_size)
-        self.subcarrier_index = 20
-        self.subcarrier_frequency = USABLE_SUBCARRIER_FREQUENCIES[self.subcarrier_index]
         self.A = self.aoa_steering_vector()  # (n_rx, theta_count)
+        self.n_sub = None
+        self.n_rx = None
 
     @override
     def csi_callback(self, new_csi):
-        _, _, n_tx = np.shape(new_csi)
+        n_sub, n_rx, n_tx = np.shape(new_csi)
+        if self.n_sub is None:
+            self.n_sub = n_sub
+        if self.n_rx is None:
+            self.n_rx = n_rx
         for tx in range(n_tx):
             self.buffer.push(new_csi[:, :, tx])
 
     @override
     def evaluate(self):
-        C = self.buffer.asarray()
-        R = np.cov(C[self.subcarrier_index, :, :])
-        # pick k eigenvectors of noise space
+        C = np.swapaxes(self.buffer.asarray(), 0, 1)  # (n_rx, n_sub, k)
+        R = np.cov(np.reshape(C, (self.n_rx, -1), order="F"))
+        # pick L eigenvectors of noise space
         e, v = np.linalg.eigh(R)
         indices = e < 0.1 * np.max(e)
-        E = v[:, indices]  # (n_rx, k)
+        E = v[:, indices]  # (n_rx, L)
         # compute profile
         profile = np.zeros(self.params.theta_count)
         for i in range(self.params.theta_count):
             a = self.A[:, i]  # (n_rx)
             profile[i] = 1 / np.real(a.conj().T @ E @ E.conj().T @ a)
         return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
-
-    @override
-    def aoa_steering_vector(self):
-        # calculate wave number
-        k = 2 * np.pi * F0 / C_SPEED
-        # expand dims so broadcasting works later
-        dx, dy = np.expand_dims(self.params.rx_position.T, axis=2)
-        # column j corresponds to steering vector for j'th theta sample
-        A = np.repeat(np.expand_dims(self.theta_samples, axis=0), len(dx), axis=0)
-        A = np.exp(1.0j * k * (dx * np.cos(A) + dy * np.sin(A)))
-        # A now has shape (n_rx, theta_count)
-        return A
 
 
 class Conventional(Algorithm):
@@ -297,10 +289,30 @@ class Capon(Algorithm):
 
     name = "capon"
 
+    def __init__(self, params: Params, channel, bandwidth):
+        super().__init__(params, channel, bandwidth)
+        self.buffer = CircularBuffer(maxlen=params.buffer_size)
+        self.A = self.aoa_steering_vector()  # (n_rx, theta_count)
+        self.n_sub = None
+        self.n_rx = None
+
     @override
     def csi_callback(self, new_csi):
-        raise NotImplementedError()
+        n_sub, n_rx, n_tx = np.shape(new_csi)
+        if self.n_sub is None:
+            self.n_sub = n_sub
+        if self.n_rx is None:
+            self.n_rx = n_rx
+        for tx in range(n_tx):
+            self.buffer.push(new_csi[:, :, tx])
 
     @override
     def evaluate(self):
-        raise NotImplementedError()
+        C = np.swapaxes(self.buffer.asarray(), 0, 1)  # (n_rx, n_sub, k)
+        R = np.cov(np.reshape(C, (self.n_rx, -1), order="F"))
+        # use least_squares solve for stability when computing profile
+        profile = np.zeros(self.params.theta_count)
+        for i in range(self.params.theta_count):
+            a = self.A[:, i]  # (n_rx)
+            profile[i] = 1 / np.real(a.conj().T @ np.linalg.solve(R, a))
+        return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
