@@ -6,11 +6,14 @@ ROS package providing utilities for CSI data correction and calculation of Angle
 
 This package contains two nodes:
 
-- **aoa_node** takes in input CSI from the `/csi` topic and publishes 1d and 2d AoA/ToF profiles as [`Profile1d`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Profile1d.msg) and [`Profile2d`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Profile2d.msg) messages to `/profile1d` and `/profile2d` respectively
+- **aoa_node** takes in input CSI from the `/csi` topic and publishes 1d and 2d AoA/ToF profiles as [`Profile1d`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Profile1d.msg) and [`Profile2d`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Profile2d.msg) messages to `/profile1d_raw` and `/profile2d_raw` respectively
 
 - **correction_node** applies compensation and corrects phase shifts in raw CSI data from `/csi_raw`, republishing the CSI and RSSI from incoming [`Wifi`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Wifi.msg) messages as [`Csi`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Csi.msg) and [`Rssi`](https://github.com/Jklein64/rf_msgs/blob/main/msg/Rssi.msg) messages to `/csi` and `/rssi`
 
 These nodes support arbitrary (planar) antenna array configurations allowing for linear, square, etc. array shapes, though some algorithms assume a linear arrangement. [algorithm.py](https://github.com/Jklein64/wiros_processing/blob/main/src/aoa_node/algorithm.py) is written in such a way that it is very easy to add new ones.
+
+> [!NOTE]
+> Our experimentation was done on a Uniform Linear Array (ULA) of 4 antennas spaced 3 cm apart. The list `[0, 2, 1, 3]` maps physical array element to CSI `n_rx` dimension index. Antenna number zero is the origin, the +Y axis extends from it away from the other antennas, and the +X axis is oriented so the two follow the right hand rule. Angles of attack are measured going counterclockwise from the +X axis.
 
 ## Parameters
 
@@ -232,25 +235,18 @@ The MUSIC algorithm is a subspace method. It assumes that the eigenspace of the 
 This version of the algorithm estimates the number of incoming wavefronts.
 
 1. Fill a length $k$ circular buffer $C \in \mathbb{C}^{N \times M \times k}$ with collected CSI data, treating data corresponding to each transmitter as if it was a completely new measurement.
-1. For each subcarrier $n$, let $C_n \in \mathbb{C}^{M\times k}$ be a matrix whose columns are CSI data for each receiver, and let $\mu_n \in \mathbb{C}^M$ be the average of each row of $C_n$. Compute the covariance matrix $R_n = \frac{1}{k-1}(C_n - \mu_n)(C_n - \mu_n)^*$ (broadcasting the subtraction).
-1. Let $e_n^i$ and $v_n^i$ be the eigenvalues and eigenvectors of $R_n$ respectively. Create a basis for the noise subspace $\mathcal E_n = \{e_n^i \mid e_n^i < \alpha \cdot \max_i e_n^i\}$, where $\alpha$ is a threshold parameter (normally $0.1$).
-1. Let $E_n \in \mathbb{C}^{M \times L}$ be a matrix whose columns are elements of $\mathcal E_n$, so that the column space of $E_n$ is the noise subspace.
-1. Compute the per-subcarrier profile $`p_{i,n} = \frac{1}{\mathbb{R}e \left\{a(\theta_i)^* E_nE_n^* a(\theta_i)\right\}}`$.
-1. Average across subcarriers to compute $p_i = \frac{1}{n}\sum_n p_{i,n}$.
-
-This method only requires using one subcarrier, not necessarily all of them.
+1. Stack subcarriers with buffer samples and reshape $C \in \mathbb{C}^{M \times Nk}$. Let $\mu \in \mathbb{C}^M$ be the average of each row of $C$. Compute the covariance matrix $R = \frac{1}{Nk-1}(C - \mu)(C - \mu)^*$ (broadcasting the subtraction).
+1. Let $e_i$ and $v_i$ be the eigenvalues and eigenvectors of $R$ respectively. Create a basis for the noise subspace $\mathcal E = \{e_i \mid e_i < \alpha \cdot \max_j e_j\}$, where $\alpha$ is a threshold parameter (normally $0.1$).
+1. Let $E \in \mathbb{C}^{M \times L}$ be a matrix whose columns are elements of $\mathcal E$, so that the column space of $E$ is the noise subspace.
+1. Compute the profile $`p_{i} = \frac{1}{\Re \left\{a(\theta_i)^* EE^* a(\theta_i)\right\}}`$.
 
 ### capon
 
 Capon beamforming, also known as the Minimum Variance Distortionless Response (MVDR). This algorithm is an adaptive beamformer, and has better performance than conventional beamforming without the need to select or estimate the number of incoming wavefronts like in MUSIC.
 
 1. Fill a length $k$ circular buffer $C \in \mathbb{C}^{N \times M \times k}$ with collected CSI data, treating data corresponding to each transmitter as if it was a completely new measurement.
-1. For each subcarrier $n$, let $C_n \in \mathbb{C}^{M\times k}$ be a matrix whose columns are CSI data for each receiver, and let $\mu_n \in \mathbb{C}^M$ be the average of each row of $C_n$. Compute the covariance matrix $R_n = \frac{1}{k-1}(C_n - \mu_n)(C_n - \mu_n)^*$ (broadcasting the subtraction).
-1. Compute the per-subcarrier profile $`p_{i,n} = \frac{1}{\Re \left\{a(\theta_i)^* R^{-1} a(\theta_i)\right\}}`$.
-1. Average across subcarriers to compute $p_i = \frac{1}{n}\sum_n p_{i,n}$.
-
-This method only requires using one subcarrier, not necessarily all of them.
-
+1. Stack subcarriers with buffer samples and reshape $C \in \mathbb{C}^{M \times Nk}$. Let $\mu \in \mathbb{C}^M$ be the average of each row of $C$. Compute the covariance matrix $R = \frac{1}{Nk-1}(C - \mu)(C - \mu)^*$ (broadcasting the subtraction).
+1. Compute the profile $`p_{i} = \frac{1}{\Re \left\{a(\theta_i)^* R^{-1} a(\theta_i)\right\}}`$.
 ## Resources
 
 - [Beamforming & DoA, PySDR Docs](https://pysdr.org/content/doa.html)
