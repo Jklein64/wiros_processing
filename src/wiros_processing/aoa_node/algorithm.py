@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     # avoids circular import
     from .aoa_node import Params
 
+SMALLEST_NORMAL = np.finfo(np.float64).smallest_normal
+
 
 class Algorithm:
     """Angle of Arrival (AoA) and Time of Flight (ToF) extraction algorithm.
@@ -193,7 +195,7 @@ class Svd(Algorithm):
         u, _, _ = np.linalg.svd(C)
         X = np.reshape(u[:, 0], (self.n_sub, self.n_rx), order="F")
         # compute (theta_count, tau_count) profile
-        return np.abs(self.A.conj().T @ X.conj().T @ self.B)
+        return np.abs(self.A.conj().T @ X.T @ self.B)
 
 
 class Wiros(Algorithm):
@@ -266,7 +268,8 @@ class Music(Algorithm):
         profile = np.zeros(self.params.theta_count)
         for i in range(self.params.theta_count):
             a = self.A[:, i]  # (n_rx)
-            profile[i] = 1 / np.real(a.conj().T @ E @ E.conj().T @ a)
+            denominator = np.real(a.conj().T @ E @ E.conj().T @ a)
+            profile[i] = 1 / np.maximum(denominator, SMALLEST_NORMAL)
         return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
 
 
@@ -314,5 +317,6 @@ class Capon(Algorithm):
         profile = np.zeros(self.params.theta_count)
         for i in range(self.params.theta_count):
             a = self.A[:, i]  # (n_rx)
-            profile[i] = 1 / np.real(a.conj().T @ np.linalg.solve(R, a))
+            x = np.linalg.lstsq(R, a, rcond=None)
+            profile[i] = 1 / np.real(a.conj().T @ x)
         return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
