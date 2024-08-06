@@ -34,7 +34,7 @@ These nodes support arbitrary (planar) antenna array configurations allowing for
 
 - `rssi_threshold` : Only keep CSI for frames where RSSI is above this limit. Filters out poor-quality measurements.
 
-- `compensation_array` : Optional path to a [compensation file](#collecting-compensation-data). These are channel-specific files containing calibration values for the measured phase. Compensation files should be stored in the format `{receiver IP}-{channel number}.npy`, e.g. `192.168.1.1-36.npy`. This repo only supports using one channel's compensation file at a time.
+- `compensation_path` : Optional path to a [compensation file](#collecting-compensation-data). These are channel-specific files containing calibration values for the measured phase. Compensation files should be stored in the format `{receiver IP}-{channel number}.npy`, e.g. `192.168.1.1-36.npy`. This repo only supports using one channel's compensation file at a time.
 
 ## Collecting Compensation Data
 
@@ -236,7 +236,7 @@ This version of the algorithm estimates the number of incoming wavefronts.
 
 1. Fill a length $k$ circular buffer $C \in \mathbb{C}^{N \times M \times k}$ with collected CSI data, treating data corresponding to each transmitter as if it was a completely new measurement.
 1. Stack subcarriers with buffer samples and reshape $C \in \mathbb{C}^{M \times Nk}$. Let $\mu \in \mathbb{C}^M$ be the average of each row of $C$. Compute the covariance matrix $R = \frac{1}{Nk-1}(C - \mu)(C - \mu)^*$ (broadcasting the subtraction).
-1. Let $e_i$ and $v_i$ be the eigenvalues and eigenvectors of $R$ respectively. Create a basis for the noise subspace $\mathcal E = \{e_i \mid e_i < \alpha \cdot \max_j e_j\}$, where $\alpha$ is a threshold parameter (normally $0.1$).
+1. Let $e_i$ and $v_i$ be the eigenvalues and eigenvectors of $R$ respectively. Create a basis for the noise subspace $`\mathcal E = \{e_i \mid e_i < \alpha \cdot \max_j e_j\}`$, where $\alpha$ is a threshold parameter (normally $0.1$).
 1. Let $E \in \mathbb{C}^{M \times L}$ be a matrix whose columns are elements of $\mathcal E$, so that the column space of $E$ is the noise subspace.
 1. Compute the profile $`p_{i} = \frac{1}{\Re \left\{a(\theta_i)^* EE^* a(\theta_i)\right\}}`$.
 
