@@ -317,6 +317,6 @@ class Capon(Algorithm):
         profile = np.zeros(self.params.theta_count)
         for i in range(self.params.theta_count):
             a = self.A[:, i]  # (n_rx)
-            x = np.linalg.lstsq(R, a, rcond=None)
+            x, *_ = np.linalg.lstsq(R, a, rcond=None)
             profile[i] = 1 / np.real(a.conj().T @ x)
         return np.reshape(np.atleast_2d(profile), (self.params.theta_count, 1))
